@@ -4,5 +4,4 @@ abstract class BoutiqueRepository {
   Future<List<Boutique>> loadBoutiques();
   Future<Boutique> create(Boutique boutique);
   Future<Boutique> update(Boutique boutique);
-  Future<void> delete(String id);
 }

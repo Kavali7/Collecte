@@ -5,28 +5,37 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:collecte_revendeurs/app.dart';
 import 'package:collecte_revendeurs/core/permissions/permissions_controller.dart';
 import 'package:collecte_revendeurs/core/permissions/permissions_state.dart';
+import 'package:collecte_revendeurs/features/auth/controllers/auth_controller.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   testWidgets('affiche la page de connexion', (tester) async {
+    final mockAuth = MockFirebaseAuth();
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           permissionsControllerProvider.overrideWith(
             (ref) => _AlwaysGrantedPermissionsController(),
           ),
+          firebaseAuthProvider.overrideWithValue(
+            mockAuth,
+          ),
         ],
         child: const CollecteApp(),
       ),
     );
 
-    expect(find.textContaining('Collecte des revendeurs'), findsOneWidget);
-    expect(find.text('Connexion email'), findsOneWidget);
+    expect(find.text('Collecte des revendeurs'), findsOneWidget);
+    expect(find.text('Se connecter'), findsOneWidget);
+    expect(find.text('Adresse email'), findsOneWidget);
   });
 }
 

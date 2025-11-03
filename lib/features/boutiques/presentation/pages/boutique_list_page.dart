@@ -72,8 +72,6 @@ class BoutiqueListPage extends ConsumerWidget {
                       AppRoute.boutiqueEdit.name,
                       pathParameters: {'id': boutique.id},
                     ),
-                    onDelete: () =>
-                        _confirmDeletion(context, controller, boutique.id),
                   ),
                 ),
               ),
@@ -83,42 +81,6 @@ class BoutiqueListPage extends ConsumerWidget {
       ),
     );
   }
-}
-
-Future<void> _confirmDeletion(
-  BuildContext context,
-  BoutiqueListController controller,
-  String boutiqueId,
-) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final result =
-      await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text('Supprimer la boutique ?'),
-            content: const Text(
-              'Cette action retirera la boutique de ta liste locale. Tu pourras la recreer si besoin.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Annuler'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Supprimer'),
-              ),
-            ],
-          );
-        },
-      ) ??
-      false;
-
-  if (!result) return;
-
-  await controller.deleteBoutique(boutiqueId);
-  messenger.showSnackBar(const SnackBar(content: Text('Boutique supprimee')));
 }
 
 class _WelcomeHeader extends StatelessWidget {

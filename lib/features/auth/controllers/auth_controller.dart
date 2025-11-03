@@ -5,15 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/auth_state.dart';
 
+final firebaseAuthProvider = Provider<FirebaseAuth>(
+  (ref) => FirebaseAuth.instance,
+);
+
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
   (ref) {
-    return AuthController();
+    final firebaseAuth = ref.watch(firebaseAuthProvider);
+    return AuthController(firebaseAuth);
   },
 );
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController()
-    : _auth = FirebaseAuth.instance,
+  AuthController(FirebaseAuth auth)
+    : _auth = auth,
       super(const AuthState.initial()) {
     _authSubscription = _auth.authStateChanges().listen(_onAuthStateChanged);
   }

@@ -1,4 +1,4 @@
-const { initializeApp, cert } = require('firebase-admin/app');
+ï»¿const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { readFileSync } = require('fs');
 const { resolve } = require('path');
@@ -25,10 +25,9 @@ async function seed() {
 
   const boutiques = [
     {
-      nom: 'Boutique Démo',
+      nom: 'Boutique DÃ©mo',
       nomGerantComplet: 'Test Utilisateur',
       telephone: '+225 01 23 45 67',
-      adresse: 'Abidjan Plateau',
       latitude: 5.3234,
       longitude: -4.0245,
       photoUrl: null,
@@ -51,12 +50,12 @@ async function seed() {
   });
 
   await batch.commit();
-  console.log('Seed terminé');
+  console.log('Seed terminÃ©');
 }
 
 seed()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error('Échec du seed:', error);
+    console.error('Ã‰chec du seed:', error);
     process.exit(1);
   });

@@ -111,11 +111,6 @@ class BoutiqueDetailPage extends ConsumerWidget {
                                 ? 'Telephone non renseigne'
                                 : boutique.telephone,
                           ),
-                          InfoRow(
-                            icon: Icons.place_outlined,
-                            label: 'Adresse',
-                            value: boutique.adresse,
-                          ),
                         ],
                       ),
                     ),

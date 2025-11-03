@@ -10,13 +10,11 @@ class BoutiqueCard extends StatelessWidget {
     required this.boutique,
     this.onTap,
     this.onEdit,
-    this.onDelete,
   });
 
   final Boutique boutique;
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -69,12 +67,6 @@ class BoutiqueCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        boutique.adresse,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
                       const SizedBox(height: 8),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -104,25 +96,12 @@ class BoutiqueCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (onEdit != null || onDelete != null) ...[
+                if (onEdit != null) ...[
                   const SizedBox(width: 12),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit' && onEdit != null) onEdit!();
-                      if (value == 'delete' && onDelete != null) onDelete!();
-                    },
-                    itemBuilder: (context) => [
-                      if (onEdit != null)
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Text('Modifier'),
-                        ),
-                      if (onDelete != null)
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Supprimer'),
-                        ),
-                    ],
+                  IconButton(
+                    tooltip: 'Modifier',
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
                   ),
                 ],
               ],

@@ -22,7 +22,6 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   final _nomController = TextEditingController();
   final _nomGerantController = TextEditingController();
   final _telephoneController = TextEditingController();
-  final _adresseController = TextEditingController();
 
   String? _photoPath;
   DateTime? _dateDeVisite;
@@ -52,7 +51,6 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
     _nomController.dispose();
     _nomGerantController.dispose();
     _telephoneController.dispose();
-    _adresseController.dispose();
     super.dispose();
   }
 
@@ -81,8 +79,8 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
               children: [
                 _CameraCaptureSection(
                   photoPath: _photoPath,
-                  onCapture: _capturePhoto,
-                  onRemove: _photoPath == null
+                  onCapture: _isEditing ? null : _capturePhoto,
+                  onRemove: _isEditing || _photoPath == null
                       ? null
                       : () {
                           setState(() {
@@ -94,6 +92,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                                 'La localisation sera determinee automatiquement via le GPS du telephone.';
                           });
                         },
+                  isEnabled: !_isEditing,
                 ),
                 const SizedBox(height: 16),
                 _LocationPreview(
@@ -102,6 +101,10 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                   isLoading: _isExtractingLocation,
                   message: _locationMessage,
                 ),
+                if (_isEditing) ...[
+                  const SizedBox(height: 16),
+                  const _LockedFieldsBanner(),
+                ],
                 const SizedBox(height: 24),
                 Text(
                   'Informations boutique',
@@ -131,6 +134,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                   decoration: const InputDecoration(
                     labelText: 'Nom complet du gerant',
                   ),
+                  enabled: !_isEditing,
                   validator: (value) => value == null || value.isEmpty
                       ? 'Indique le nom complet'
                       : null,
@@ -143,16 +147,6 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                     prefixIcon: Icon(Icons.phone),
                   ),
                   keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _adresseController,
-                  decoration: const InputDecoration(
-                    labelText: 'Adresse',
-                    prefixIcon: Icon(Icons.place_outlined),
-                  ),
-                  minLines: 1,
-                  maxLines: 3,
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -213,6 +207,8 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   }
 
   Future<void> _capturePhoto() async {
+    if (_isEditing) return;
+
     final picker = ImagePicker();
     final image = await picker.pickImage(
       source: ImageSource.camera,
@@ -288,24 +284,26 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       return;
     }
 
-    if (_photoPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ajoute une photo pour enregistrer la boutique.'),
-        ),
-      );
-      return;
-    }
-
-    if (_latitude == null || _longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Coordonnees GPS manquantes. Active la localisation, reprends la photo et recommence.',
+    if (!_isEditing) {
+      if (_photoPath == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ajoute une photo pour enregistrer la boutique.'),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
+
+      if (_latitude == null || _longitude == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Coordonnees GPS manquantes. Active la localisation, reprends la photo et recommence.',
+            ),
+          ),
+        );
+        return;
+      }
     }
 
     final controller = ref.read(boutiqueListControllerProvider.notifier);
@@ -316,7 +314,6 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       nom: _nomController.text.trim(),
       nomGerantComplet: _nomGerantController.text.trim(),
       telephone: _telephoneController.text.trim(),
-      adresse: _adresseController.text.trim(),
       latitude: _latitude,
       longitude: _longitude,
       photoPath: _photoPath,
@@ -348,7 +345,6 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       _nomController.text = boutique.nom;
       _nomGerantController.text = boutique.nomGerantComplet;
       _telephoneController.text = boutique.telephone;
-      _adresseController.text = boutique.adresse;
       _photoPath = boutique.photoPath;
       _dateDeVisite = boutique.dateDeVisite;
       _syncStatus = boutique.syncStatus;
@@ -361,16 +357,48 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   }
 }
 
+class _LockedFieldsBanner extends StatelessWidget {
+  const _LockedFieldsBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEF2FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Color(0xFF4F46E5)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Seuls le nom et le numero de telephone peuvent etre modifies pour cette boutique.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CameraCaptureSection extends StatelessWidget {
   const _CameraCaptureSection({
-    required this.onCapture,
     required this.photoPath,
+    this.onCapture,
     this.onRemove,
+    this.isEnabled = true,
   });
 
-  final VoidCallback onCapture;
+  final VoidCallback? onCapture;
   final String? photoPath;
   final VoidCallback? onRemove;
+  final bool isEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -380,33 +408,50 @@ class _CameraCaptureSection extends StatelessWidget {
         AspectRatio(
           aspectRatio: 4 / 3,
           child: GestureDetector(
-            onTap: onCapture,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: const Color(0xFFE5E7EB),
-              ),
-              child: photoPath == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(
-                          Icons.photo_camera_outlined,
-                          size: 48,
-                          color: Color(0xFF1D4ED8),
+            onTap: isEnabled ? onCapture : null,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: const Color(0xFFE5E7EB),
+                  ),
+                  child: photoPath == null
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(
+                              Icons.photo_camera_outlined,
+                              size: 48,
+                              color: Color(0xFF1D4ED8),
+                            ),
+                            SizedBox(height: 12),
+                            Text('Prendre une photo'),
+                          ],
+                        )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: _buildPhotoPreview(photoPath!),
                         ),
-                        SizedBox(height: 12),
-                        Text('Prendre une photo'),
-                      ],
-                    )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: _buildPhotoPreview(photoPath!),
+                ),
+                if (!isEnabled)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.black.withValues(alpha: 0.3),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.lock_outline, color: Colors.white70),
+                      ),
                     ),
+                  ),
+              ],
             ),
           ),
         ),
-        if (photoPath != null) ...[
+        if (isEnabled && photoPath != null) ...[
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,

@@ -42,12 +42,6 @@ class MockBoutiqueRepository implements BoutiqueRepository {
     return updated;
   }
 
-  @override
-  Future<void> delete(String id) async {
-    _boutiques.removeWhere((item) => item.id == id);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-  }
-
   void _seedBoutiques() {
     if (_boutiques.isNotEmpty) return;
 
@@ -57,7 +51,6 @@ class MockBoutiqueRepository implements BoutiqueRepository {
         nom: 'Boutique Soleil',
         nomGerantComplet: 'Awa Kouassi',
         telephone: '+225 07 55 12 34',
-        adresse: 'Marcory Zone 4',
         latitude: 5.30966,
         longitude: -4.00426,
         photoPath: null,
@@ -69,7 +62,6 @@ class MockBoutiqueRepository implements BoutiqueRepository {
         nom: 'TechnoPlus',
         nomGerantComplet: 'Moussa Diallo',
         telephone: '+225 05 11 22 33',
-        adresse: 'Plateau, Avenue 13',
         latitude: 5.32813,
         longitude: -4.02342,
         photoPath: null,
@@ -81,7 +73,6 @@ class MockBoutiqueRepository implements BoutiqueRepository {
         nom: 'Mode Elegance',
         nomGerantComplet: 'Mariame Traore',
         telephone: '+225 01 77 88 99',
-        adresse: 'Yopougon, Rue des marches',
         latitude: 5.39012,
         longitude: -4.08745,
         photoPath: null,

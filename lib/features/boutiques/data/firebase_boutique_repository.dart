@@ -103,23 +103,6 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
     return payloadBoutique;
   }
 
-  @override
-  Future<void> delete(String id) async {
-    final docRef = _firestore.collection(_collectionName).doc(id);
-    final snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      return;
-    }
-    final data = snapshot.data() ?? {};
-    final storagePath = data['photoStoragePath'] as String?;
-
-    await docRef.delete();
-
-    if (storagePath != null && storagePath.isNotEmpty) {
-      await _deleteFromStorage(storagePath);
-    }
-  }
-
   static Boutique _mapDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
     String fallbackId,
@@ -139,7 +122,6 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
       nom: (raw['nom'] as String?) ?? '',
       nomGerantComplet: (raw['nomGerantComplet'] as String?) ?? '',
       telephone: (raw['telephone'] as String?) ?? '',
-      adresse: (raw['adresse'] as String?) ?? '',
       latitude: latitude is num ? latitude.toDouble() : null,
       longitude: longitude is num ? longitude.toDouble() : null,
       photoPath: raw['photoUrl'] as String?,
@@ -220,7 +202,6 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
       'nom': boutique.nom,
       'nomGerantComplet': boutique.nomGerantComplet,
       'telephone': boutique.telephone,
-      'adresse': boutique.adresse,
       'latitude': boutique.latitude,
       'longitude': boutique.longitude,
       'photoUrl': boutique.photoPath,

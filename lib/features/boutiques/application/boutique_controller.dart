@@ -51,15 +51,6 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
     return saved;
   }
 
-  Future<void> deleteBoutique(String id) async {
-    state = state.copyWith(isLoading: true);
-    await _repository.delete(id);
-    state = state.copyWith(
-      boutiques: state.boutiques.where((item) => item.id != id).toList(),
-      isLoading: false,
-    );
-  }
-
   Boutique? findById(String id) {
     if (id.isEmpty) return null;
     try {
