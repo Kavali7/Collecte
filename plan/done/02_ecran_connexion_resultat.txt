@@ -1,0 +1,10 @@
+Verification de l'ecran de connexion effectuee le 2025-11-01.
+
+- Bouton Google masque : seul le bouton email reste dans l'interface (`lib/features/auth/presentation/login_page.dart:312`).
+- Bouton principal confirme avec le libelle "Se connecter" (`lib/features/auth/presentation/login_page.dart:313`).
+- Message d'erreur utilisateur en cas de mauvais mot de passe : "Email ou mot de passe incorrect." (`lib/features/auth/controllers/auth_controller.dart:84`).
+- La methode `signInWithGoogle` est volontairement vide pour indiquer que la fonctionnalite est desactivee (`lib/features/auth/controllers/auth_controller.dart:24`).
+
+Pour la documentation interne :
+1. Capturer l'ecran actuel de `LoginPage` (apres desactivation du bouton Google) sous Android et iOS.
+2. Deposer les captures dans le repertoire de reference (ex. partage interne /docs/connexion) et mettre a jour le guide utilisateur en consequence.

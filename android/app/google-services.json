@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1047550427679",
+    "project_id": "collecte-9b6e1",
+    "storage_bucket": "collecte-9b6e1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1047550427679:android:da1c072ecf7cc2b12ecb2a",
+        "android_client_info": {
+          "package_name": "com.example.collecte_revendeurs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5iI1h-mg7200qyT1xx5z3AOx8QihiAGs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

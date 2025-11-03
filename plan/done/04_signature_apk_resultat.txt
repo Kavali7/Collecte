@@ -1,0 +1,9 @@
+Verification de la signature release effectuee le 2025-11-02.
+
+- Keystore cree avec keytool et stocke dans `android/app/collecte-release.jks` (android/app/collecte-release.jks).
+- Fichier `android/key.properties` configure avec les identifiants fournis et l'alias collecte (android/key.properties:1-4).
+- Chargement du keystore et configuration signingConfig release ajoutes dans `android/app/build.gradle.kts` (android/app/build.gradle.kts:12-62).
+- `.gitignore` ignore desormais `android/key.properties` et tous les `*.jks` (.gitignore:49-50).
+- `flutter build apk --release` reussi, APK disponible dans `build/app/outputs/flutter-apk/app-release.apk`.
+
+Note : conserver le keystore et ses mots de passe dans un stockage chiffre, hors de tout depot partage.

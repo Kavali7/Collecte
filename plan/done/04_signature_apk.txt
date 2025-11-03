@@ -1,0 +1,22 @@
+Objectif : preparer la signature release indispensable pour une APK distribuable.
+
+Etapes :
+1. Creer un dossier securise (hors du projet) pour stocker le keystore, par exemple `C:\clefs`.
+2. Dans un terminal, lancer :
+   ```
+   keytool -genkey -v -keystore C:\clefs\collecte-release.jks -keyalg RSA -keysize 2048 -validity 3650 -alias collecte
+   ```
+   Note bien le mot de passe du keystore et celui de la cle.
+3. Copier le fichier `collecte-release.jks` dans `android/app`.
+4. Creer un fichier `android/key.properties` avec le contenu suivant (adapter les mots de passe) :
+   ```
+   storePassword=TON_MOT_DE_PASSE
+   keyPassword=TON_MOT_DE_PASSE_CLE
+   keyAlias=collecte
+   storeFile=../app/collecte-release.jks
+   ```
+5. Modifier `android/app/build.gradle.kts` :
+   - Ajouter le chargement du fichier `key.properties`.
+   - Remplacer `signingConfig = signingConfigs.getByName("debug")` par la config release.
+6. Verifier que `key.properties` et le keystore sont ignores par Git (`.gitignore` doit contenir `key.properties` et `*.jks`).
+7. Executer `flutter build apk --release` pour valider que la signature fonctionne (la generation peut etre faite dans l'etape suivante, ici on verifie juste que la config est correcte).

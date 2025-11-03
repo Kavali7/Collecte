@@ -1,0 +1,18 @@
+Objectif : garantir que les agents disposent de toutes les informations pour utiliser l'application.
+
+Etapes :
+1. Rediger un guide simple (1 ou 2 pages) qui explique :
+   - comment installer l'APK,
+   - comment demander un compte,
+   - comment se connecter et recuperer son mot de passe,
+   - comment prendre une photo et valider une boutique.
+2. Preparer une check-list de tests terrain :
+   - connexion OK,
+   - permissions camera/localisation acceptees,
+   - photo enregistrée,
+   - donnee visible dans Firestore,
+   - deconnexion OK.
+3. Designer un referent technique qui collectera les retours des agents (email ou numero).
+4. Mettre en place un canal de diffusion (WhatsApp, Teams, etc.) pour envoyer l'APK et le guide.
+5. Effectuer une repetition generale avec 1 ou 2 agents pilotes avant d'envoyer a tout le monde. Noter les problemes rencontrees et les corriger.
+6. Conserver une copie de l'APK et du guide dans un dossier sauvegarde (cloud + disque externe) pour pouvoir re-distribuer rapidement en cas de besoin.

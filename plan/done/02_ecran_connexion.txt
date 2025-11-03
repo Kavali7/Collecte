@@ -1,0 +1,9 @@
+Objectif : finaliser l'ecran de connexion pour eviter toute fonctionnalite inactive.
+
+Etapes :
+1. Decider si la connexion Google sera disponible pour les agents.
+   - Si oui : activer le fournisseur Google dans Firebase, ajouter les SHA-1/SHA-256 du keystore release, puis implementer le flux Google (bouton, plugin `google_sign_in`, tests).
+   - Si non : masquer le bouton dans `lib/features/auth/presentation/login_page.dart` et supprimer le message "Connexion Google non disponible".
+2. Verifier que le bouton principal affiche bien du texte. Il doit maintenant montrer "Se connecter". Si tu changes le texte, reste en ASCII pour eviter les caracteres corrompus.
+3. Tester la connexion email/mot de passe avec un compte Firebase actif. Noter le message d'erreur obtenu lorsqu'on tape un mauvais mot de passe : il doit etre clair pour l'utilisateur.
+4. Mettre a jour les captures d'ecran et la documentation interne pour refléter la version finale de l'ecran de connexion.

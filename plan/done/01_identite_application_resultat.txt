@@ -1,0 +1,13 @@
+Verification de l'identite applicative effectuee le 2025-11-01.
+
+- Nom affiche Android : collecte_revendeurs (android/app/src/main/AndroidManifest.xml#L5).
+- Nom affiche iOS : Collecte Revendeurs (ios/Runner/Info.plist#L10).
+- Package Android : com.example.collecte_revendeurs (android/app/build.gradle.kts#L21).
+- Bundle iOS : com.example.collecteRevendeurs (ios/Runner.xcodeproj/project.pbxproj#L371).
+- Projet Firebase : collecte-9b6e1 (android/app/google-services.json#L4 et ios/Runner/GoogleService-Info.plist#L9).
+
+Aucune modification n'etait necessaire pour cette tache.
+
+Pour renommer l'application ulterieurement et regenerer la configuration Firebase :
+1. Mettre a jour les identifiants et noms dans les fichiers Android et iOS concernes.
+2. Lancer `flutterfire configure --platforms=android,ios --android-package-name <nouveau_package> --ios-bundle-id <nouveau_bundle_id> --project=<nouveau_projet>` afin de recreer `lib/firebase_options.dart`, `android/app/google-services.json` et `ios/Runner/GoogleService-Info.plist` avec les nouvelles valeurs.

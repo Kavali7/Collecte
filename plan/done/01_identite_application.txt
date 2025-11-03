@@ -1,0 +1,11 @@
+Objectif : fixer l'identite finale de l'application avant la compilation en APK.
+
+Taches a suivre (dans l'ordre) :
+1. Choisir le nom officiel de l'application et l'identifiant unique (exemple : com.maboite.collecte). Note-les pour reutilisation.
+2. Ouvrir `android/app/build.gradle.kts` et remplacer `applicationId` par le nouvel identifiant. Sauvegarder.
+3. Renommer le dossier du package Kotlin : `android/app/src/main/kotlin/com/example/collecte_revendeurs` doit etre renomme pour suivre le nouvel identifiant (creer les nouveaux dossiers puis deplacer `MainActivity.kt`).
+4. Mettre a jour le champ `package` dans `MainActivity.kt` pour qu'il corresponde au nouvel identifiant.
+5. Modifier `android/app/src/main/AndroidManifest.xml` : changer `android:label` pour afficher le nom de l'app vu par l'utilisateur.
+6. Cote iOS (meme si seule l'APK est partagee) : mettre a jour `macos/Runner/Configs/AppInfo.xcconfig` et `ios/Runner/Info.plist` afin que les valeurs correspondent a l'identite choisie. Cela evite les incoherences si l'app evolue.
+7. Regenerer la configuration Firebase : lancer `flutterfire configure` pour mettre a jour `lib/firebase_options.dart`, `android/app/google-services.json` et `ios/Runner/GoogleService-Info.plist` avec les nouveaux identifiants.
+8. Verifier que l'application se lance toujours en debug (`flutter run`). Si une erreur apparait, corriger avant de continuer.

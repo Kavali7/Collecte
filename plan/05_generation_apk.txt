@@ -1,0 +1,17 @@
+Objectif : produire et verifier l'APK finale.
+
+Etapes :
+1. S'assurer que l'application compile en mode debug (`flutter run`). Corriger toute erreur avant d'aller plus loin.
+2. Nettoyer les builds precedents : `flutter clean`, puis `flutter pub get`.
+3. Generer l'APK release :
+   ```
+   flutter build apk --release
+   ```
+   Le fichier sera dans `build/app/outputs/flutter-apk/app-release.apk`.
+4. Copier l'APK dans un dossier partage (ex. Google Drive ou SharePoint) accessible aux agents.
+5. Installer l'APK sur un telephone de test (Android >= version minimale definie) pour un controle rapide :
+   - installation
+   - connexion
+   - prise de photo
+   - enregistrement d'une boutique
+6. Noter la version distribuee : ajouter la date, la version (`pubspec.yaml` > `version`) et l'emplacement du fichier dans un tableau de suivi.

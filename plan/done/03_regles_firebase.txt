@@ -1,0 +1,30 @@
+Objectif : securiser les donnees (Firestore + Storage) avant la diffusion.
+
+Etapes :
+1. Ouvrir la console Firebase > Firestore Database > Regles.
+2. Copier les regles de base suivantes (adapter si besoin) :
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /boutiques/{document} {
+         allow read, write: if request.auth != null;
+       }
+     }
+   }
+   ```
+   Cela bloque toute personne non connectee. Ajuster si tu dois enregistrer des champs specifiques.
+3. Publier les regles et tester rapidemment avec l'appli (connexion + creation d'une boutique).
+4. Passer au stockage : Firebase Console > Storage > Regles. Exemple de base :
+   ```
+   rules_version = '2';
+   service firebase.storage {
+     match /b/{bucket}/o {
+       match /boutiques/{allPaths=**} {
+         allow read, write: if request.auth != null;
+       }
+     }
+   }
+   ```
+5. Publier et tester l'upload d'une photo depuis l'appli.
+6. Noter dans un document interne comment gerer les comptes agents : creation, desactivation, reinitialisation de mot de passe.

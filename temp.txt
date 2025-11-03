@@ -1,0 +1,7 @@
+    final data = snapshot.data() as Map<String, dynamic>? ?? {};
+    final existingUrl = data['photoUrl'] as String?;
+    final existingStoragePath = data['photoStoragePath'] as String?;
+
+    final photo = await _handlePhoto(
+      docId: docRef.id,
+      newPath: boutique.photoPath,

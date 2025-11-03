@@ -1,0 +1,32 @@
+Verification des regles Firebase effectuee le 2025-11-01.
+
+- Les operations Firestore de l'application reposent exclusivement sur la collection `boutiques` (`lib/features/boutiques/data/firebase_boutique_repository.dart:24-40`), ce qui correspond aux regles proposees.
+- Les fichiers stockes sont ranges sous `boutiques/<docId>/...` dans Firebase Storage (`lib/features/boutiques/data/firebase_boutique_repository.dart:194-205`), donc la regle Storage doit couvrir ce prefixe.
+- Aucun fichier local `firestore.rules` ou `storage.rules` n'est versionne; verifier dans la console Firebase que les regles deployees sont bien limitees aux utilisateurs authentifies. A defaut, appliquer :
+  ```
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /boutiques/{document} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+  ```
+  et
+  ```
+  rules_version = '2';
+  service firebase.storage {
+    match /b/{bucket}/o {
+      match /boutiques/{allPaths=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+  ```
+- Tests de publication non executes depuis cet environnement (acces console requis); planifier une verification manuelle apres mise a jour.
+
+Gestion des comptes agents (a documenter en interne) :
+1. Creation : ajouter le compte dans Firebase Authentication (email, mot de passe temporaire) puis partager les identifiants par canal securise.
+2. Desactivation : desactiver le compte via Firebase Authentication > Utilisateurs pour bloquer l'acces immediatement.
+3. Reinitialisation : utiliser l'envoi du lien de reinitialisation de mot de passe depuis la console ou via `sendPasswordResetEmail`.
