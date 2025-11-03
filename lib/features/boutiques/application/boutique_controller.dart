@@ -51,6 +51,10 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
     return saved;
   }
 
+  Future<bool> isTelephoneAvailable(String telephone, {String? excludeId}) {
+    return _repository.isTelephoneAvailable(telephone, excludeId: excludeId);
+  }
+
   Boutique? findById(String id) {
     if (id.isEmpty) return null;
     try {

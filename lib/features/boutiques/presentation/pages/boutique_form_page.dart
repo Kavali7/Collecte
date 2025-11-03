@@ -31,11 +31,23 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   String? _locationMessage;
   SyncStatus _syncStatus = SyncStatus.pending;
 
+  bool _isTelephoneChecking = false;
+  bool _isTelephoneValid = false;
+  String? _telephoneFeedback;
+  String? _lastValidatedTelephone;
+
   bool get _isEditing => widget.boutiqueId != null;
+  bool get _hasValidatedTelephone {
+    final current = _telephoneController.text.trim();
+    return _isTelephoneValid &&
+        _lastValidatedTelephone != null &&
+        current == _lastValidatedTelephone;
+  }
 
   @override
   void initState() {
     super.initState();
+    _telephoneController.addListener(_handleTelephoneChanged);
     if (_isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadExistingValues();
@@ -50,6 +62,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   void dispose() {
     _nomController.dispose();
     _nomGerantController.dispose();
+    _telephoneController.removeListener(_handleTelephoneChanged);
     _telephoneController.dispose();
     super.dispose();
   }
@@ -142,12 +155,25 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _telephoneController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Telephone',
-                    prefixIcon: Icon(Icons.phone),
+                    prefixIcon: const Icon(Icons.phone),
+                    suffixIcon: _buildTelephoneSuffix(context),
                   ),
                   keyboardType: TextInputType.phone,
                 ),
+                if (_telephoneFeedback != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      _telephoneFeedback!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _isTelephoneValid
+                            ? const Color(0xFF16A34A)
+                            : Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 20),
                 Text(
                   'Visite',
@@ -194,7 +220,13 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                 ),
                 const SizedBox(height: 28),
                 FilledButton.icon(
-                  onPressed: isSaving ? null : _submit,
+                  key: const Key('boutique-form-submit-button'),
+                  onPressed:
+                      isSaving ||
+                          !_hasValidatedTelephone ||
+                          _isTelephoneChecking
+                      ? null
+                      : _submit,
                   icon: const Icon(Icons.save),
                   label: Text(_isEditing ? 'Mettre a jour' : 'Enregistrer'),
                 ),
@@ -204,6 +236,109 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
         ),
       ),
     );
+  }
+
+  Widget? _buildTelephoneSuffix(BuildContext context) {
+    if (_isTelephoneChecking) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_hasValidatedTelephone) {
+      return const Icon(Icons.check_circle, color: Color(0xFF16A34A));
+    }
+
+    final theme = Theme.of(context);
+    final hasErrorFeedback = !_isTelephoneValid && _telephoneFeedback != null;
+    final iconData = hasErrorFeedback
+        ? Icons.error_outline
+        : Icons.check_circle_outline;
+    final iconColor = hasErrorFeedback
+        ? theme.colorScheme.error
+        : theme.colorScheme.primary;
+
+    return IconButton(
+      onPressed: _validateTelephone,
+      icon: Icon(iconData, color: iconColor),
+      tooltip: 'Verifier le numero',
+    );
+  }
+
+  void _handleTelephoneChanged() {
+    final current = _telephoneController.text.trim();
+    final alreadyValidated =
+        _lastValidatedTelephone != null && current == _lastValidatedTelephone;
+
+    if (alreadyValidated) {
+      if (!_isTelephoneValid) {
+        setState(() {
+          _isTelephoneValid = true;
+        });
+      }
+      return;
+    }
+
+    if (_isTelephoneValid ||
+        _telephoneFeedback != null ||
+        _lastValidatedTelephone != null) {
+      setState(() {
+        _isTelephoneValid = false;
+        _telephoneFeedback = null;
+        _lastValidatedTelephone = null;
+      });
+    }
+  }
+
+  Future<void> _validateTelephone() async {
+    if (_isTelephoneChecking) return;
+
+    final telephone = _telephoneController.text.trim();
+    if (telephone.isEmpty) {
+      setState(() {
+        _isTelephoneValid = false;
+        _telephoneFeedback =
+            'Renseigne un numero avant de lancer la verification.';
+        _lastValidatedTelephone = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isTelephoneChecking = true;
+      _telephoneFeedback = null;
+    });
+
+    try {
+      final controller = ref.read(boutiqueListControllerProvider.notifier);
+      final available = await controller.isTelephoneAvailable(
+        telephone,
+        excludeId: widget.boutiqueId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isTelephoneChecking = false;
+        _isTelephoneValid = available;
+        _lastValidatedTelephone = telephone;
+        _telephoneFeedback = available
+            ? 'Numero valide. Tu peux continuer.'
+            : 'Ce numero est deja enregistre. Tu ne peux pas reutiliser un numero existant.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isTelephoneChecking = false;
+        _isTelephoneValid = false;
+        _lastValidatedTelephone = null;
+        _telephoneFeedback =
+            'Verification impossible pour le moment. Reessaie dans un instant.';
+      });
+    }
   }
 
   Future<void> _capturePhoto() async {
@@ -265,8 +400,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
         }
       }
     } catch (error) {
-      message =
-          'Erreur lors de la recuperation de la localisation: $error';
+      message = 'Erreur lors de la recuperation de la localisation: $error';
     }
 
     if (!mounted) return;
@@ -281,6 +415,15 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (!_hasValidatedTelephone) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Valide le numero de telephone avant de continuer.'),
+        ),
+      );
       return;
     }
 
@@ -341,10 +484,15 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       return;
     }
 
+    final telephone = boutique.telephone.trim();
     setState(() {
       _nomController.text = boutique.nom;
       _nomGerantController.text = boutique.nomGerantComplet;
-      _telephoneController.text = boutique.telephone;
+      _telephoneController.text = telephone;
+      _lastValidatedTelephone = telephone.isEmpty ? null : telephone;
+      _isTelephoneValid = _lastValidatedTelephone != null;
+      _telephoneFeedback = null;
+      _isTelephoneChecking = false;
       _photoPath = boutique.photoPath;
       _dateDeVisite = boutique.dateDeVisite;
       _syncStatus = boutique.syncStatus;
@@ -368,7 +516,9 @@ class _LockedFieldsBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFEEF2FF),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

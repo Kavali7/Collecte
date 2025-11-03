@@ -42,6 +42,24 @@ class MockBoutiqueRepository implements BoutiqueRepository {
     return updated;
   }
 
+  @override
+  Future<bool> isTelephoneAvailable(
+    String telephone, {
+    String? excludeId,
+  }) async {
+    final normalized = telephone.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    return !_boutiques.any((boutique) {
+      final matchesNumber = boutique.telephone.trim() == normalized;
+      if (!matchesNumber) return false;
+      if (excludeId == null) return true;
+      return boutique.id != excludeId;
+    });
+  }
+
   void _seedBoutiques() {
     if (_boutiques.isNotEmpty) return;
 

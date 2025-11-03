@@ -18,8 +18,8 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
   FirebaseBoutiqueRepository({
     required FirebaseFirestore firestore,
     required FirebaseStorage storage,
-  })  : _firestore = firestore,
-        _storage = storage;
+  }) : _firestore = firestore,
+       _storage = storage;
 
   static const String _collectionName = 'boutiques';
 
@@ -184,7 +184,8 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
     return _PhotoHandlingResult(
       downloadUrl: downloadUrl,
       storagePath: storagePath,
-      pathToDelete: existingStoragePath != null &&
+      pathToDelete:
+          existingStoragePath != null &&
               existingStoragePath.isNotEmpty &&
               existingStoragePath != storagePath
           ? existingStoragePath
@@ -218,6 +219,41 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
     }
 
     return map;
+  }
+
+  @override
+  Future<bool> isTelephoneAvailable(
+    String telephone, {
+    String? excludeId,
+  }) async {
+    final normalized = telephone.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    final query = await _firestore
+        .collection(_collectionName)
+        .where('telephone', isEqualTo: normalized)
+        .limit(5)
+        .get();
+
+    if (query.docs.isEmpty) {
+      return true;
+    }
+
+    for (final doc in query.docs) {
+      final data = doc.data();
+      final docId = doc.id;
+      final storedId = (data['id'] as String?) ?? '';
+
+      final matchesExcluded =
+          excludeId != null && (excludeId == docId || excludeId == storedId);
+      if (!matchesExcluded) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   Future<void> _deleteFromStorage(String storagePath) async {
