@@ -1,4 +1,6 @@
 import 'package:collecte_revendeurs/features/boutiques/data/boutique_repository.dart';
+import 'package:collecte_revendeurs/features/boutiques/application/boutique_controller.dart';
+import 'package:collecte_revendeurs/features/boutiques/data/boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/data/firebase_boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/domain/boutique.dart';
 import 'package:collecte_revendeurs/features/boutiques/presentation/pages/boutique_form_page.dart';
@@ -23,6 +25,13 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      final context = tester.element(find.byType(BoutiqueFormPage));
+      final container = ProviderScope.containerOf(context);
+      final controller = container.read(
+        boutiqueListControllerProvider.notifier,
+      );
+      controller.state = controller.state.copyWith(isLoading: false);
+
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Telephone'),
         '0700000000',
@@ -32,8 +41,9 @@ void main() {
       final buttonFinder = find.byKey(const Key('boutique-form-submit-button'));
       expect(buttonFinder, findsOneWidget);
 
-      final ButtonStyleButton disabledButtonBefore = tester
-          .widget<ButtonStyleButton>(buttonFinder);
+      final FilledButton disabledButtonBefore = tester.widget<FilledButton>(
+        buttonFinder,
+      );
       expect(disabledButtonBefore.onPressed, isNull);
 
       final verifierFinder = find.byTooltip('Verifier le numero');
@@ -41,8 +51,9 @@ void main() {
       await tester.tap(verifierFinder);
       await tester.pumpAndSettle();
 
-      final ButtonStyleButton enabledButtonAfter = tester
-          .widget<ButtonStyleButton>(buttonFinder);
+      final FilledButton enabledButtonAfter = tester.widget<FilledButton>(
+        buttonFinder,
+      );
       expect(enabledButtonAfter.onPressed, isNotNull);
     },
   );

@@ -1,1 +1,8 @@
-enum AppRoute { auth, boutiques, boutiqueNew, boutiqueDetail, boutiqueEdit }
+enum AppRoute {
+  auth,
+  boutiques,
+  boutiqueNew,
+  boutiqueDetail,
+  boutiqueEdit,
+  boutiqueMap,
+}

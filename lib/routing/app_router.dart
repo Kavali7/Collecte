@@ -9,6 +9,7 @@ import '../features/auth/presentation/login_page.dart';
 import '../features/boutiques/presentation/pages/boutique_detail_page.dart';
 import '../features/boutiques/presentation/pages/boutique_form_page.dart';
 import '../features/boutiques/presentation/pages/boutique_list_page.dart';
+import '../features/boutiques/presentation/pages/boutique_map_page.dart';
 import 'app_route.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -28,6 +29,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoute.boutiques.name,
         builder: (context, state) => const BoutiqueListPage(),
         routes: [
+          GoRoute(
+            path: 'carte',
+            name: AppRoute.boutiqueMap.name,
+            builder: (context, state) => const BoutiqueMapPage(),
+          ),
           GoRoute(
             path: 'nouvelle',
             name: AppRoute.boutiqueNew.name,

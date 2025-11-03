@@ -21,6 +21,11 @@ class BoutiqueListPage extends ConsumerWidget {
         title: const Text('Mes boutiques'),
         actions: [
           IconButton(
+            tooltip: 'Voir la carte',
+            onPressed: () => context.pushNamed(AppRoute.boutiqueMap.name),
+            icon: const Icon(Icons.map_outlined),
+          ),
+          IconButton(
             tooltip: 'Se deconnecter',
             onPressed: () =>
                 ref.read(authControllerProvider.notifier).signOut(),
