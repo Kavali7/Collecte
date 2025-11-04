@@ -1,6 +1,5 @@
 import 'package:collecte_revendeurs/features/boutiques/data/boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/application/boutique_controller.dart';
-import 'package:collecte_revendeurs/features/boutiques/data/boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/data/firebase_boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/domain/boutique.dart';
 import 'package:collecte_revendeurs/features/boutiques/presentation/pages/boutique_form_page.dart';

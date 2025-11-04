@@ -161,7 +161,7 @@ class _StatusChip extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              isOffline ? 'Mode hors ligne' : 'Connecté',
+              isOffline ? 'Mode hors ligne' : 'Connecte',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: isOffline
                     ? colorScheme.onErrorContainer
@@ -190,14 +190,14 @@ class _EmptyMapState extends StatelessWidget {
           const Icon(Icons.public, size: 56, color: Color(0xFF1D4ED8)),
           const SizedBox(height: 12),
           Text(
-            'Aucune coordonnée disponible',
+            'Aucune coordonnee disponible',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
             isOffline
-                ? 'Connecte-toi pour récupérer les dernières collectes.'
-                : 'Ajoute des boutiques avec coordonnées GPS pour les visualiser ici.',
+                ? 'Connecte-toi pour recuperer les dernieres collectes.'
+                : 'Ajoute des boutiques avec coordonnees GPS pour les visualiser ici.',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -225,7 +225,7 @@ class _OfflineBanner extends StatelessWidget {
             const Icon(Icons.wifi_off, color: Color(0xFF92400E)),
             const SizedBox(width: 8),
             Text(
-              'Carte en mode hors ligne (affichage des données en cache)',
+              'Carte en mode hors ligne (affichage des donnees en cache)',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFF92400E),
               ),
@@ -301,7 +301,7 @@ class _LoadingBanner extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             SizedBox(width: 8),
-            Text('Mise à jour de la carte...'),
+            Text('Mise a jour de la carte...'),
           ],
         ),
       ),

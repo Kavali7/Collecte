@@ -31,6 +31,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _initializePermissions() async {
+    if (!mounted) return;
     final controller = ref.read(permissionsControllerProvider.notifier);
     await controller.initialize();
     if (!mounted) return;
