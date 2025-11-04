@@ -42,6 +42,7 @@ class BoutiqueCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _Thumbnail(photoPaths: boutique.photoPaths),
                 const SizedBox(width: 16),
@@ -50,26 +51,37 @@ class BoutiqueCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Text(
-                              boutique.nom,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  boutique.nom,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Chip(
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    label: Text(boutique.specialiteLabel),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          _SyncBadge(status: boutique.syncStatus),
+                          if (onEdit != null)
+                            IconButton(
+                              tooltip: 'Modifier',
+                              onPressed: onEdit,
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
                         ],
-                      ),
-                      const SizedBox(height: 6),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Chip(
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          label: Text(boutique.specialiteLabel),
-                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -143,6 +155,26 @@ class BoutiqueCard extends StatelessWidget {
                         ),
                       const SizedBox(height: 4),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.place_outlined, size: 16),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              boutique.adresse?.isNotEmpty == true
+                                  ? boutique.adresse!
+                                  : 'Adresse indisponible',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[700],
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.location_on_outlined, size: 16),
@@ -153,17 +185,11 @@ class BoutiqueCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 4),
+                      _SyncBadge(status: boutique.syncStatus),
                     ],
                   ),
                 ),
-                if (onEdit != null) ...[
-                  const SizedBox(width: 12),
-                  IconButton(
-                    tooltip: 'Modifier',
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                ],
               ],
             ),
           ),

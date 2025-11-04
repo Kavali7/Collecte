@@ -185,6 +185,7 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
         fallbackCollectorId ??
         '';
     final specialiteRaw = raw['specialite'] as String?;
+    final adresse = (raw['adresse'] as String?)?.trim();
 
     return Boutique(
       id: raw['id'] as String? ?? fallbackId,
@@ -192,6 +193,7 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
       nomGerantComplet: (raw['nomGerantComplet'] as String?) ?? '',
       collectorId: collectorId,
       specialite: boutiqueSpecialiteFromStorage(specialiteRaw),
+      adresse: adresse?.isEmpty == true ? null : adresse,
       telephones: _readTelephones(raw),
       latitude: latitude is num ? latitude.toDouble() : null,
       longitude: longitude is num ? longitude.toDouble() : null,
@@ -340,6 +342,7 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
       'nomGerantComplet': boutique.nomGerantComplet,
       'collectorId': boutique.collectorId,
       'specialite': boutique.specialite.storageValue,
+      'adresse': boutique.adresse,
       'telephone': boutique.primaryTelephone,
       'telephones': boutique.telephones,
       'latitude': boutique.latitude,

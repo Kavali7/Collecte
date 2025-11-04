@@ -30,7 +30,9 @@ class BoutiqueListState {
       final matchesTelephone = boutique.telephones.any(
         (telephone) => telephone.toLowerCase().contains(query),
       );
-      return matchesNom || matchesGerant || matchesTelephone;
+      final matchesAddress =
+          (boutique.adresse?.toLowerCase().contains(query) ?? false);
+      return matchesNom || matchesGerant || matchesTelephone || matchesAddress;
     }).toList()..sort(
       (a, b) => (b.dateDeVisite ?? DateTime(1970)).compareTo(
         a.dateDeVisite ?? DateTime(1970),

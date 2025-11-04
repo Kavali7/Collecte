@@ -5,6 +5,7 @@ class Boutique {
     required this.nomGerantComplet,
     required this.collectorId,
     this.specialite = BoutiqueSpecialite.telephone,
+    this.adresse,
     List<String>? telephones,
     List<String>? photoPaths,
     this.latitude,
@@ -20,6 +21,7 @@ class Boutique {
   final String nomGerantComplet;
   final String collectorId;
   final BoutiqueSpecialite specialite;
+  final String? adresse;
   final List<String> telephones;
   final List<String> photoPaths;
   final double? latitude;
@@ -51,6 +53,7 @@ class Boutique {
     String? nomGerantComplet,
     String? collectorId,
     BoutiqueSpecialite? specialite,
+    String? adresse,
     List<String>? telephones,
     double? latitude,
     double? longitude,
@@ -68,6 +71,7 @@ class Boutique {
       nomGerantComplet: nomGerantComplet ?? this.nomGerantComplet,
       collectorId: collectorId ?? this.collectorId,
       specialite: specialite ?? this.specialite,
+      adresse: adresse ?? this.adresse,
       telephones: telephones ?? this.telephones,
       latitude: clearLocation ? null : (latitude ?? this.latitude),
       longitude: clearLocation ? null : (longitude ?? this.longitude),

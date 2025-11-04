@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'package:collecte_revendeurs/core/location/locationiq_reverse_geocoding.dart';
 import '../../application/boutique_controller.dart';
 import '../../domain/boutique.dart';
 
@@ -22,6 +23,8 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   final _nomController = TextEditingController();
   final _nomGerantController = TextEditingController();
   final List<_TelephoneFieldState> _telephoneFields = [];
+  final _adresseController = TextEditingController();
+  final _reverseGeocodingService = LocationIqReverseGeocodingService();
   BoutiqueSpecialite? _selectedSpecialite;
   String? _collectorId;
 
@@ -33,6 +36,8 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   bool _isExtractingLocation = false;
   String? _locationMessage;
   SyncStatus _syncStatus = SyncStatus.pending;
+  bool _isResolvingAddress = false;
+  String? _addressError;
 
   bool get _isEditing => widget.boutiqueId != null;
   bool get _hasValidatedTelephones =>
@@ -62,6 +67,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   void dispose() {
     _nomController.dispose();
     _nomGerantController.dispose();
+    _adresseController.dispose();
     for (final field in _telephoneFields) {
       field.dispose();
     }
@@ -104,6 +110,39 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                   isLoading: _isExtractingLocation,
                   message: _locationMessage,
                 ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _adresseController,
+                  readOnly: true,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: 'Adresse detectee',
+                    helperText:
+                        'Basee sur la localisation au moment de la premiere photo.',
+                    suffixIcon: _isResolvingAddress
+                        ? const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : (_adresseController.text.isNotEmpty
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : null),
+                  ),
+                ),
+                if (_addressError != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _addressError!,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Colors.red),
+                  ),
+                ],
                 if (_isEditing) ...[
                   const SizedBox(height: 16),
                   const _LockedFieldsBanner(),
@@ -448,6 +487,9 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
         _latitude = null;
         _longitude = null;
         _dateDeVisite = null;
+        _adresseController.clear();
+        _addressError = null;
+        _isResolvingAddress = false;
         _locationMessage =
             'La localisation sera determinee automatiquement via le GPS du telephone lors de la premiere photo.';
       }
@@ -499,6 +541,42 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       _latitude = latitude;
       _longitude = longitude;
       _locationMessage = message;
+      if (latitude == null || longitude == null) {
+        _adresseController.clear();
+        _addressError = 'Adresse indisponible.';
+      }
+    });
+
+    if (latitude != null && longitude != null) {
+      await _resolveAddressFromLocation(latitude, longitude);
+    }
+  }
+
+  Future<void> _resolveAddressFromLocation(
+    double latitude,
+    double longitude,
+  ) async {
+    setState(() {
+      _isResolvingAddress = true;
+      _addressError = null;
+    });
+
+    final result = await _reverseGeocodingService.resolve(
+      latitude: latitude,
+      longitude: longitude,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isResolvingAddress = false;
+      if (result.isSuccess && result.address != null) {
+        _adresseController.text = result.address!.formatted;
+        _addressError = null;
+      } else {
+        _adresseController.clear();
+        _addressError = result.errorMessage ?? 'Adresse indisponible.';
+      }
     });
   }
 
@@ -563,6 +641,9 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       nomGerantComplet: _nomGerantController.text.trim(),
       collectorId: _collectorId ?? '',
       specialite: _selectedSpecialite!,
+      adresse: _adresseController.text.trim().isEmpty
+          ? null
+          : _adresseController.text.trim(),
       telephones: telephones,
       latitude: _latitude,
       longitude: _longitude,
@@ -577,7 +658,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
     Navigator.of(context).pop();
   }
 
-  void _loadExistingValues() {
+  Future<void> _loadExistingValues() async {
     final boutique = ref
         .read(boutiqueListControllerProvider)
         .boutiques
@@ -597,6 +678,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       _nomGerantController.text = boutique.nomGerantComplet;
       _collectorId = boutique.collectorId;
       _selectedSpecialite = boutique.specialite;
+      _adresseController.text = boutique.adresse ?? '';
       _setTelephoneValues(boutique.telephones);
       _photoPaths = boutique.photoPaths;
       _dateDeVisite = boutique.dateDeVisite;
@@ -608,6 +690,15 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
           ? 'Coordonnees deja renseignees pour cette boutique.'
           : 'Prends une premiere photo pour recuperer automatiquement la localisation.';
     });
+
+    if ((boutique.adresse == null || boutique.adresse!.isEmpty) &&
+        boutique.latitude != null &&
+        boutique.longitude != null) {
+      await _resolveAddressFromLocation(
+        boutique.latitude!,
+        boutique.longitude!,
+      );
+    }
   }
 }
 

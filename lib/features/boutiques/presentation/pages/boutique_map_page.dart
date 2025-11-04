@@ -258,7 +258,6 @@ class _StatusChip extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isOffline ? Icons.cloud_off : Icons.cloud_done,
@@ -268,13 +267,16 @@ class _StatusChip extends StatelessWidget {
                   : colorScheme.onSecondaryContainer,
             ),
             const SizedBox(width: 6),
-            Text(
-              isOffline ? 'Mode hors ligne' : 'Connecte',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: isOffline
-                    ? colorScheme.onErrorContainer
-                    : colorScheme.onSecondaryContainer,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                isOffline ? 'Mode hors ligne' : 'Connecte',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: isOffline
+                      ? colorScheme.onErrorContainer
+                      : colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

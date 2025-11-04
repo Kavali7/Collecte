@@ -134,6 +134,14 @@ class BoutiqueDetailPage extends ConsumerWidget {
                           ),
                           const SizedBox(height: 12),
                           _TelephoneDetailsList(telephones: boutique.telephones),
+                          const SizedBox(height: 12),
+                          InfoRow(
+                            icon: Icons.location_on_outlined,
+                            label: 'Adresse',
+                            value: boutique.adresse?.isNotEmpty == true
+                                ? boutique.adresse!
+                                : 'Adresse non disponible',
+                          ),
                         ],
                       ),
                     ),
