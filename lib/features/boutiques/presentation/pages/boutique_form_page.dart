@@ -21,40 +21,40 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _nomGerantController = TextEditingController();
-  final _telephoneController = TextEditingController();
+  final List<_TelephoneFieldState> _telephoneFields = [];
+  BoutiqueSpecialite? _selectedSpecialite;
+  String? _collectorId;
 
-  String? _photoPath;
+  List<String> _photoPaths = [];
   DateTime? _dateDeVisite;
+  DateTime? _submittedAt;
   double? _latitude;
   double? _longitude;
   bool _isExtractingLocation = false;
   String? _locationMessage;
   SyncStatus _syncStatus = SyncStatus.pending;
 
-  bool _isTelephoneChecking = false;
-  bool _isTelephoneValid = false;
-  String? _telephoneFeedback;
-  String? _lastValidatedTelephone;
-
   bool get _isEditing => widget.boutiqueId != null;
-  bool get _hasValidatedTelephone {
-    final current = _telephoneController.text.trim();
-    return _isTelephoneValid &&
-        _lastValidatedTelephone != null &&
-        current == _lastValidatedTelephone;
-  }
+  bool get _hasValidatedTelephones =>
+      _telephoneFields.isNotEmpty &&
+      _telephoneFields.every(
+        (field) =>
+            field.isValid && field.controller.text.trim().isNotEmpty,
+      );
+  bool get _isAnyTelephoneChecking =>
+      _telephoneFields.any((field) => field.isChecking);
 
   @override
   void initState() {
     super.initState();
-    _telephoneController.addListener(_handleTelephoneChanged);
+    _telephoneFields.add(_createTelephoneField(''));
     if (_isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadExistingValues();
       });
     } else {
       _locationMessage =
-          'La localisation sera determinee automatiquement via le GPS du telephone.';
+          'La localisation sera determinee automatiquement via le GPS du telephone lors de la premiere photo.';
     }
   }
 
@@ -62,8 +62,9 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   void dispose() {
     _nomController.dispose();
     _nomGerantController.dispose();
-    _telephoneController.removeListener(_handleTelephoneChanged);
-    _telephoneController.dispose();
+    for (final field in _telephoneFields) {
+      field.dispose();
+    }
     super.dispose();
   }
 
@@ -74,7 +75,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
     );
     final materialLocalizations = MaterialLocalizations.of(context);
     final visitLabel = _dateDeVisite == null
-        ? 'Capture une photo pour renseigner automatiquement la date.'
+        ? 'Capture une premiere photo pour renseigner automatiquement la date.'
         : '${materialLocalizations.formatMediumDate(_dateDeVisite!)} '
               '${materialLocalizations.formatTimeOfDay(TimeOfDay.fromDateTime(_dateDeVisite!), alwaysUse24HourFormat: true)}';
 
@@ -90,22 +91,11 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _CameraCaptureSection(
-                  photoPath: _photoPath,
-                  onCapture: _isEditing ? null : _capturePhoto,
-                  onRemove: _isEditing || _photoPath == null
-                      ? null
-                      : () {
-                          setState(() {
-                            _photoPath = null;
-                            _latitude = null;
-                            _longitude = null;
-                            _dateDeVisite = null;
-                            _locationMessage =
-                                'La localisation sera determinee automatiquement via le GPS du telephone.';
-                          });
-                        },
-                  isEnabled: !_isEditing,
+                _PhotoPickerSection(
+                  photoPaths: _photoPaths,
+                  isEditable: !_isEditing,
+                  onAddPhoto: _isEditing ? null : _capturePhoto,
+                  onRemovePhoto: _isEditing ? null : _removePhotoAt,
                 ),
                 const SizedBox(height: 16),
                 _LocationPreview(
@@ -134,6 +124,28 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                   validator: (value) =>
                       value == null || value.isEmpty ? 'Indique le nom' : null,
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<BoutiqueSpecialite>(
+                  initialValue: _selectedSpecialite,
+                  decoration: const InputDecoration(labelText: 'Specialite'),
+                  items: BoutiqueSpecialite.values
+                      .map(
+                        (specialite) => DropdownMenuItem(
+                          value: specialite,
+                          child: Text(specialite.displayLabel),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _isEditing
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _selectedSpecialite = value;
+                          });
+                        },
+                  validator: (value) =>
+                      value == null ? 'Selectionne une specialite' : null,
+                ),
                 const SizedBox(height: 20),
                 Text(
                   'Informations gerant',
@@ -153,27 +165,12 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                       : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _telephoneController,
-                  decoration: InputDecoration(
-                    labelText: 'Telephone',
-                    prefixIcon: const Icon(Icons.phone),
-                    suffixIcon: _buildTelephoneSuffix(context),
-                  ),
-                  keyboardType: TextInputType.phone,
+                _TelephoneFieldsEditor(
+                  fields: _telephoneFields,
+                  onAddField: _addTelephoneField,
+                  onRemoveField: _removeTelephoneField,
+                  buildSuffix: _buildTelephoneSuffix,
                 ),
-                if (_telephoneFeedback != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      _telephoneFeedback!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _isTelephoneValid
-                            ? const Color(0xFF16A34A)
-                            : Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
                 const SizedBox(height: 20),
                 Text(
                   'Visite',
@@ -223,8 +220,8 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                   key: const Key('boutique-form-submit-button'),
                   onPressed:
                       isSaving ||
-                          !_hasValidatedTelephone ||
-                          _isTelephoneChecking
+                          !_hasValidatedTelephones ||
+                          _isAnyTelephoneChecking
                       ? null
                       : _submit,
                   icon: const Icon(Icons.save),
@@ -238,8 +235,11 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
     );
   }
 
-  Widget? _buildTelephoneSuffix(BuildContext context) {
-    if (_isTelephoneChecking) {
+  Widget? _buildTelephoneSuffix(
+    BuildContext context,
+    _TelephoneFieldState field,
+  ) {
+    if (field.isChecking) {
       return const Padding(
         padding: EdgeInsets.all(12),
         child: SizedBox(
@@ -250,12 +250,16 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       );
     }
 
-    if (_hasValidatedTelephone) {
+    final current = field.controller.text.trim();
+    final hasValidated =
+        field.isValid && field.lastValidatedValue == current && current.isNotEmpty;
+
+    if (hasValidated) {
       return const Icon(Icons.check_circle, color: Color(0xFF16A34A));
     }
 
     final theme = Theme.of(context);
-    final hasErrorFeedback = !_isTelephoneValid && _telephoneFeedback != null;
+    final hasErrorFeedback = !field.isValid && field.feedback != null;
     final iconData = hasErrorFeedback
         ? Icons.error_outline
         : Icons.check_circle_outline;
@@ -264,54 +268,64 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
         : theme.colorScheme.primary;
 
     return IconButton(
-      onPressed: _validateTelephone,
+      onPressed: () => _validateTelephone(field),
       icon: Icon(iconData, color: iconColor),
       tooltip: 'Verifier le numero',
     );
   }
 
-  void _handleTelephoneChanged() {
-    final current = _telephoneController.text.trim();
+  void _handleTelephoneChanged(_TelephoneFieldState field) {
+    final current = field.controller.text.trim();
     final alreadyValidated =
-        _lastValidatedTelephone != null && current == _lastValidatedTelephone;
+        field.lastValidatedValue != null && current == field.lastValidatedValue;
 
     if (alreadyValidated) {
-      if (!_isTelephoneValid) {
+      if (!field.isValid) {
         setState(() {
-          _isTelephoneValid = true;
+          field.isValid = true;
         });
       }
       return;
     }
 
-    if (_isTelephoneValid ||
-        _telephoneFeedback != null ||
-        _lastValidatedTelephone != null) {
+    if (field.isValid || field.feedback != null || field.lastValidatedValue != null) {
       setState(() {
-        _isTelephoneValid = false;
-        _telephoneFeedback = null;
-        _lastValidatedTelephone = null;
+        field
+          ..isValid = false
+          ..feedback = null
+          ..lastValidatedValue = null;
       });
     }
   }
 
-  Future<void> _validateTelephone() async {
-    if (_isTelephoneChecking) return;
+  Future<void> _validateTelephone(_TelephoneFieldState field) async {
+    if (field.isChecking) return;
 
-    final telephone = _telephoneController.text.trim();
+    final telephone = field.controller.text.trim();
     if (telephone.isEmpty) {
       setState(() {
-        _isTelephoneValid = false;
-        _telephoneFeedback =
-            'Renseigne un numero avant de lancer la verification.';
-        _lastValidatedTelephone = null;
+        field
+          ..isValid = false
+          ..feedback = 'Renseigne un numero avant de lancer la verification.'
+          ..lastValidatedValue = null;
+      });
+      return;
+    }
+
+    if (_isDuplicateInForm(field, telephone)) {
+      setState(() {
+        field
+          ..isValid = false
+          ..feedback = 'Ce numero est deja renseigne dans le formulaire.'
+          ..lastValidatedValue = null;
       });
       return;
     }
 
     setState(() {
-      _isTelephoneChecking = true;
-      _telephoneFeedback = null;
+      field
+        ..isChecking = true
+        ..feedback = null;
     });
 
     try {
@@ -322,23 +336,76 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       );
       if (!mounted) return;
       setState(() {
-        _isTelephoneChecking = false;
-        _isTelephoneValid = available;
-        _lastValidatedTelephone = telephone;
-        _telephoneFeedback = available
-            ? 'Numero valide. Tu peux continuer.'
-            : 'Ce numero est deja enregistre. Tu ne peux pas reutiliser un numero existant.';
+        field
+          ..isChecking = false
+          ..isValid = available
+          ..lastValidatedValue = telephone
+          ..feedback = available
+              ? 'Numero valide. Tu peux continuer.'
+              : 'Ce numero est deja enregistre. Tu ne peux pas reutiliser un numero existant.';
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _isTelephoneChecking = false;
-        _isTelephoneValid = false;
-        _lastValidatedTelephone = null;
-        _telephoneFeedback =
-            'Verification impossible pour le moment. Reessaie dans un instant.';
+        field
+          ..isChecking = false
+          ..isValid = false
+          ..lastValidatedValue = null
+          ..feedback =
+              'Verification impossible pour le moment. Reessaie dans un instant.';
       });
     }
+  }
+
+  _TelephoneFieldState _createTelephoneField(String initialValue) {
+    final controller = TextEditingController(text: initialValue);
+    final field = _TelephoneFieldState(controller);
+    field.listener = () => _handleTelephoneChanged(field);
+    controller.addListener(field.listener!);
+    return field;
+  }
+
+  void _addTelephoneField() {
+    setState(() {
+      _telephoneFields.add(_createTelephoneField(''));
+    });
+  }
+
+  void _removeTelephoneField(_TelephoneFieldState field) {
+    if (_telephoneFields.length == 1) return;
+    setState(() {
+      _telephoneFields.remove(field);
+    });
+    field.dispose();
+  }
+
+  void _setTelephoneValues(List<String> values) {
+    for (final field in _telephoneFields) {
+      field.dispose();
+    }
+    _telephoneFields
+      ..clear()
+      ..addAll(
+        (values.isEmpty ? [''] : values).map((value) {
+          final field = _createTelephoneField(value);
+          final trimmed = value.trim();
+          if (trimmed.isNotEmpty) {
+            field
+              ..isValid = true
+              ..lastValidatedValue = trimmed;
+          }
+          return field;
+        }),
+      );
+  }
+
+  bool _isDuplicateInForm(_TelephoneFieldState currentField, String value) {
+    final normalized = value.trim().toLowerCase();
+    return _telephoneFields.any((field) {
+      if (field == currentField) return false;
+      final otherValue = field.controller.text.trim().toLowerCase();
+      return otherValue.isNotEmpty && otherValue == normalized;
+    });
   }
 
   Future<void> _capturePhoto() async {
@@ -354,15 +421,37 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
 
     if (image == null) return;
 
+    final shouldFetchLocation = _photoPaths.isEmpty;
+
     setState(() {
-      _photoPath = image.path;
-      _locationMessage = 'Recuperation de la localisation du telephone...';
-      _latitude = null;
-      _longitude = null;
-      _dateDeVisite = DateTime.now();
+      _photoPaths = [..._photoPaths, image.path];
+      if (shouldFetchLocation) {
+        _locationMessage = 'Recuperation de la localisation du telephone...';
+        _latitude = null;
+        _longitude = null;
+        _dateDeVisite = DateTime.now();
+      } else {
+        _dateDeVisite ??= DateTime.now();
+      }
     });
 
-    await _fetchDeviceLocation();
+    if (shouldFetchLocation) {
+      await _fetchDeviceLocation();
+    }
+  }
+
+  void _removePhotoAt(int index) {
+    if (index < 0 || index >= _photoPaths.length) return;
+    setState(() {
+      _photoPaths = List.of(_photoPaths)..removeAt(index);
+      if (_photoPaths.isEmpty) {
+        _latitude = null;
+        _longitude = null;
+        _dateDeVisite = null;
+        _locationMessage =
+            'La localisation sera determinee automatiquement via le GPS du telephone lors de la premiere photo.';
+      }
+    });
   }
 
   Future<void> _fetchDeviceLocation() async {
@@ -418,20 +507,32 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       return;
     }
 
-    if (!_hasValidatedTelephone) {
+    if (_selectedSpecialite == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Valide le numero de telephone avant de continuer.'),
+          content: Text('Selectionne la specialite de la boutique.'),
+        ),
+      );
+      return;
+    }
+
+    if (!_hasValidatedTelephones) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Valide tous les numeros de telephone avant de continuer.'),
         ),
       );
       return;
     }
 
     if (!_isEditing) {
-      if (_photoPath == null) {
+      if (_photoPaths.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Ajoute une photo pour enregistrer la boutique.'),
+            content: Text(
+              'Ajoute au moins une photo pour enregistrer la boutique.',
+            ),
           ),
         );
         return;
@@ -451,16 +552,23 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
 
     final controller = ref.read(boutiqueListControllerProvider.notifier);
     final visitDate = _dateDeVisite ?? DateTime.now();
+    final telephones = _telephoneFields
+        .map((field) => field.controller.text.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
 
     final boutique = Boutique(
       id: widget.boutiqueId ?? '',
       nom: _nomController.text.trim(),
       nomGerantComplet: _nomGerantController.text.trim(),
-      telephone: _telephoneController.text.trim(),
+      collectorId: _collectorId ?? '',
+      specialite: _selectedSpecialite!,
+      telephones: telephones,
       latitude: _latitude,
       longitude: _longitude,
-      photoPath: _photoPath,
+      photoPaths: _photoPaths,
       dateDeVisite: visitDate,
+      submittedAt: _submittedAt,
       syncStatus: _syncStatus,
     );
 
@@ -479,28 +587,26 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
     if (boutique == null) {
       setState(() {
         _locationMessage =
-            'La localisation sera determinee automatiquement via le GPS du telephone.';
+            'La localisation sera determinee automatiquement via le GPS du telephone lors de la premiere photo.';
       });
       return;
     }
 
-    final telephone = boutique.telephone.trim();
     setState(() {
       _nomController.text = boutique.nom;
       _nomGerantController.text = boutique.nomGerantComplet;
-      _telephoneController.text = telephone;
-      _lastValidatedTelephone = telephone.isEmpty ? null : telephone;
-      _isTelephoneValid = _lastValidatedTelephone != null;
-      _telephoneFeedback = null;
-      _isTelephoneChecking = false;
-      _photoPath = boutique.photoPath;
+      _collectorId = boutique.collectorId;
+      _selectedSpecialite = boutique.specialite;
+      _setTelephoneValues(boutique.telephones);
+      _photoPaths = boutique.photoPaths;
       _dateDeVisite = boutique.dateDeVisite;
+      _submittedAt = boutique.submittedAt;
       _syncStatus = boutique.syncStatus;
       _latitude = boutique.latitude;
       _longitude = boutique.longitude;
       _locationMessage = boutique.latitude != null && boutique.longitude != null
           ? 'Coordonnees deja renseignees pour cette boutique.'
-          : 'Prends une photo pour recuperer la localisation via le GPS du telephone.';
+          : 'Prends une premiere photo pour recuperer automatiquement la localisation.';
     });
   }
 }
@@ -527,7 +633,7 @@ class _LockedFieldsBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Seuls le nom et le numero de telephone peuvent etre modifies pour cette boutique.',
+              'Seuls le nom et les numeros de telephone peuvent etre modifies pour cette boutique.',
               style: theme.textTheme.bodySmall,
             ),
           ),
@@ -537,83 +643,251 @@ class _LockedFieldsBanner extends StatelessWidget {
   }
 }
 
-class _CameraCaptureSection extends StatelessWidget {
-  const _CameraCaptureSection({
-    required this.photoPath,
-    this.onCapture,
-    this.onRemove,
-    this.isEnabled = true,
+class _PhotoPickerSection extends StatelessWidget {
+  const _PhotoPickerSection({
+    required this.photoPaths,
+    required this.isEditable,
+    this.onAddPhoto,
+    this.onRemovePhoto,
   });
 
-  final VoidCallback? onCapture;
-  final String? photoPath;
-  final VoidCallback? onRemove;
-  final bool isEnabled;
+  final List<String> photoPaths;
+  final bool isEditable;
+  final VoidCallback? onAddPhoto;
+  final ValueChanged<int>? onRemovePhoto;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AspectRatio(
-          aspectRatio: 4 / 3,
-          child: GestureDetector(
-            onTap: isEnabled ? onCapture : null,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: const Color(0xFFE5E7EB),
-                  ),
-                  child: photoPath == null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(
-                              Icons.photo_camera_outlined,
-                              size: 48,
-                              color: Color(0xFF1D4ED8),
-                            ),
-                            SizedBox(height: 12),
-                            Text('Prendre une photo'),
-                          ],
-                        )
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: _buildPhotoPreview(photoPath!),
-                        ),
-                ),
-                if (!isEnabled)
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: Colors.black.withValues(alpha: 0.3),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.lock_outline, color: Colors.white70),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+        Text(
+          'Photos de la boutique',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
         ),
-        if (isEnabled && photoPath != null) ...[
-          const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        if (photoPaths.isEmpty)
+          GestureDetector(
+            onTap: isEditable ? onAddPhoto : null,
+            child: Container(
+              height: 180,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFFE5E7EB),
+                border:
+                    Border.all(color: Colors.blueGrey.withValues(alpha: 0.1)),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.photo_camera_outlined, size: 40),
+                    const SizedBox(height: 12),
+                    Text(
+                      isEditable
+                          ? 'Ajoute au moins une photo'
+                          : 'Aucune photo disponible',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (var i = 0; i < photoPaths.length; i++)
+                _PhotoThumbnail(
+                  path: photoPaths[i],
+                  index: i,
+                  totalCount: photoPaths.length,
+                  isEditable: isEditable,
+                  onRemove: onRemovePhoto,
+                ),
+            ],
+          ),
+        const SizedBox(height: 12),
+        if (isEditable)
           Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onRemove,
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Retirer la photo'),
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onAddPhoto,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: const Text('Ajouter une photo'),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PhotoThumbnail extends StatelessWidget {
+  const _PhotoThumbnail({
+    required this.path,
+    required this.index,
+    required this.totalCount,
+    required this.isEditable,
+    required this.onRemove,
+  });
+
+  final String path;
+  final int index;
+  final int totalCount;
+  final bool isEditable;
+  final ValueChanged<int>? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 120,
+      height: 120,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _buildPhotoPreview(path),
+            ),
+          ),
+          if (!isEditable)
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.black.withValues(alpha: 0.25),
+                ),
+                child: const Center(
+                  child: Icon(Icons.lock_outline, color: Colors.white70),
+                ),
+              ),
+            )
+          else if (onRemove != null)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withValues(alpha: 0.55),
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                ),
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () => onRemove!(index),
+              ),
+            ),
+          Positioned(
+            bottom: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${index + 1}/$totalCount',
+                style: const TextStyle(color: Colors.white, fontSize: 11),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TelephoneFieldsEditor extends StatelessWidget {
+  const _TelephoneFieldsEditor({
+    required this.fields,
+    required this.onAddField,
+    required this.onRemoveField,
+    required this.buildSuffix,
+  });
+
+  final List<_TelephoneFieldState> fields;
+  final VoidCallback onAddField;
+  final void Function(_TelephoneFieldState field) onRemoveField;
+  final Widget? Function(BuildContext context, _TelephoneFieldState field)
+      buildSuffix;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < fields.length; i++) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: fields[i].controller,
+                  decoration: InputDecoration(
+                    labelText: 'Telephone ${i + 1}',
+                    prefixIcon: const Icon(Icons.phone),
+                    suffixIcon: buildSuffix(context, fields[i]),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (fields.length > 1)
+                IconButton(
+                  tooltip: 'Supprimer ce numero',
+                  onPressed: () => onRemoveField(fields[i]),
+                  icon: const Icon(Icons.remove_circle_outline),
+                ),
+            ],
+          ),
+          if (fields[i].feedback != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                fields[i].feedback!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: fields[i].isValid
+                      ? const Color(0xFF16A34A)
+                      : theme.colorScheme.error,
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+        ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: onAddField,
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter un numero'),
+          ),
+        ),
       ],
     );
+  }
+}
+
+class _TelephoneFieldState {
+  _TelephoneFieldState(this.controller);
+
+  final TextEditingController controller;
+  bool isChecking = false;
+  bool isValid = false;
+  String? feedback;
+  String? lastValidatedValue;
+  VoidCallback? listener;
+
+  void dispose() {
+    if (listener != null) {
+      controller.removeListener(listener!);
+    }
+    controller.dispose();
   }
 }
 

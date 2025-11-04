@@ -1,8 +1,10 @@
+import 'package:collecte_revendeurs/features/auth/controllers/auth_controller.dart';
 import 'package:collecte_revendeurs/features/boutiques/data/boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/application/boutique_controller.dart';
 import 'package:collecte_revendeurs/features/boutiques/data/firebase_boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/domain/boutique.dart';
 import 'package:collecte_revendeurs/features/boutiques/presentation/pages/boutique_form_page.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,14 +16,33 @@ void main() {
     'desactive la sauvegarde tant que le numero de telephone n\'est pas valide',
     (tester) async {
       final repository = _StubBoutiqueRepository();
+      final mockAuth = MockFirebaseAuth(
+        mockUser: MockUser(
+          uid: 'tester',
+          email: 'tester@example.com',
+        ),
+        signedIn: true,
+      );
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [boutiqueRepositoryProvider.overrideWithValue(repository)],
+          overrides: [
+            boutiqueRepositoryProvider.overrideWithValue(repository),
+            firebaseAuthProvider.overrideWithValue(mockAuth),
+            authControllerProvider.overrideWith((ref) => AuthController(mockAuth)),
+          ],
           child: const MaterialApp(home: BoutiqueFormPage()),
         ),
       );
 
+      await tester.pumpAndSettle();
+
+      final dropdownFinder =
+          find.byType(DropdownButtonFormField<BoutiqueSpecialite>);
+      await tester.ensureVisible(dropdownFinder);
+      await tester.tap(dropdownFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Telephone').last);
       await tester.pumpAndSettle();
 
       final context = tester.element(find.byType(BoutiqueFormPage));
@@ -32,7 +53,7 @@ void main() {
       controller.state = controller.state.copyWith(isLoading: false);
 
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Telephone'),
+        find.widgetWithText(TextFormField, 'Telephone 1'),
         '0700000000',
       );
       await tester.pump();
@@ -62,7 +83,8 @@ class _StubBoutiqueRepository implements BoutiqueRepository {
   bool telephoneAvailable = true;
 
   @override
-  Future<List<Boutique>> loadBoutiques() async => <Boutique>[];
+  Future<List<Boutique>> loadBoutiques(String collectorId) async =>
+      <Boutique>[];
 
   @override
   Future<Boutique> create(Boutique boutique) async => boutique;
@@ -72,6 +94,7 @@ class _StubBoutiqueRepository implements BoutiqueRepository {
 
   @override
   Future<bool> isTelephoneAvailable(
+    String collectorId,
     String telephone, {
     String? excludeId,
   }) async => telephoneAvailable;

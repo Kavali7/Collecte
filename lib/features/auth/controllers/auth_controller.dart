@@ -72,6 +72,7 @@ class AuthController extends StateNotifier<AuthState> {
 
     state = state.copyWith(
       isAuthenticated: user != null,
+      userId: user?.uid,
       displayName: displayName,
       isLoading: false,
       errorMessage: null,

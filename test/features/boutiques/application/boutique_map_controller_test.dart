@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:collecte_revendeurs/core/location/location_service.dart';
 import 'package:collecte_revendeurs/features/boutiques/application/boutique_map_controller.dart';
 import 'package:collecte_revendeurs/features/boutiques/application/boutique_map_state.dart';
 import 'package:collecte_revendeurs/features/boutiques/data/boutique_repository.dart';
@@ -8,22 +9,33 @@ import 'package:collecte_revendeurs/features/boutiques/domain/boutique.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../test_utils/fake_connectivity_service.dart';
+import '../../../test_utils/fake_location_service.dart';
 
 void main() {
   late Directory tempDir;
   late BoutiqueCacheStore cacheStore;
   late _FakeBoutiqueRepository repository;
   late FakeConnectivityService connectivity;
+  late FakeLocationService locationService;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('boutique-map-cache');
-    cacheStore = BoutiqueCacheStore(baseDirectory: tempDir);
+    cacheStore = BoutiqueCacheStore(
+      baseDirectory: tempDir,
+      collectorId: 'tester',
+    );
     repository = _FakeBoutiqueRepository();
     connectivity = FakeConnectivityService(initiallyOnline: false);
+    locationService = FakeLocationService(
+      initialResult: LocationResult.success(
+        const DeviceLocation(latitude: 5.32, longitude: -4.0),
+      ),
+    );
   });
 
   tearDown(() async {
     await connectivity.dispose();
+    await locationService.dispose();
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
@@ -34,10 +46,13 @@ void main() {
       id: 'cache-1',
       nom: 'Boutique Cached',
       nomGerantComplet: 'Gerant',
-      telephone: '0700000000',
+      collectorId: 'tester',
+      specialite: BoutiqueSpecialite.telephone,
+      telephones: const ['0700000000'],
       latitude: 5.32,
       longitude: -4.00,
       dateDeVisite: DateTime(2024, 6, 12),
+      submittedAt: DateTime(2024, 6, 10, 8, 30),
       syncStatus: SyncStatus.pending,
     );
 
@@ -47,6 +62,8 @@ void main() {
       repository: repository,
       cacheStore: cacheStore,
       connectivityService: connectivity,
+      locationService: locationService,
+      collectorId: 'tester',
     );
 
     expect(controller.state, const BoutiqueMapState.initial());
@@ -63,6 +80,62 @@ void main() {
 
     controller.dispose();
   });
+
+  test(
+    'refreshUserLocation stores latest coordinates and updates via stream',
+    () async {
+      final controller = BoutiqueMapController(
+        repository: repository,
+        cacheStore: cacheStore,
+        connectivityService: connectivity,
+        locationService: locationService,
+        collectorId: 'tester',
+      );
+
+      await controller.refreshUserLocation();
+
+      expect(controller.state.userLocation, isNotNull);
+      expect(controller.state.locationErrorMessage, isNull);
+
+      locationService.emitLocation(
+        const DeviceLocation(latitude: 6.0, longitude: -4.1),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.state.userLocation?.latitude, 6.0);
+      expect(controller.state.userLocation?.longitude, -4.1);
+
+      controller.dispose();
+    },
+  );
+
+  test('refreshUserLocation surfaces permission error', () async {
+    locationService.setNextResult(
+      const LocationResult.failure(
+        LocationFailure(
+          type: LocationFailureType.permissionDenied,
+          message: 'Autorisation refusee.',
+        ),
+      ),
+    );
+
+    final controller = BoutiqueMapController(
+      repository: repository,
+      cacheStore: cacheStore,
+      connectivityService: connectivity,
+      locationService: locationService,
+      collectorId: 'tester',
+    );
+
+    await controller.refreshUserLocation();
+
+    expect(controller.state.userLocation, isNull);
+    expect(controller.state.locationErrorMessage, 'Autorisation refusee.');
+    expect(controller.state.isLocatingUser, isFalse);
+
+    controller.dispose();
+  });
 }
 
 class _FakeBoutiqueRepository implements BoutiqueRepository {
@@ -75,8 +148,10 @@ class _FakeBoutiqueRepository implements BoutiqueRepository {
   }
 
   @override
-  Future<List<Boutique>> loadBoutiques() async {
-    return remoteBoutiques;
+  Future<List<Boutique>> loadBoutiques(String collectorId) async {
+    return remoteBoutiques
+        .where((boutique) => boutique.collectorId == collectorId)
+        .toList();
   }
 
   @override
@@ -90,6 +165,7 @@ class _FakeBoutiqueRepository implements BoutiqueRepository {
 
   @override
   Future<bool> isTelephoneAvailable(
+    String collectorId,
     String telephone, {
     String? excludeId,
   }) async {

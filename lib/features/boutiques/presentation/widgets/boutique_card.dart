@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../domain/boutique.dart';
+import '../utils/submission_date_formatter.dart';
 
 class BoutiqueCard extends StatelessWidget {
   const BoutiqueCard({
@@ -19,6 +20,8 @@ class BoutiqueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final displayedPhones = boutique.telephones.take(2).toList();
+    final extraPhones = boutique.telephones.length - displayedPhones.length;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -40,7 +43,7 @@ class BoutiqueCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                _Thumbnail(photoPath: boutique.photoPath),
+                _Thumbnail(photoPaths: boutique.photoPaths),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -59,6 +62,15 @@ class BoutiqueCard extends StatelessWidget {
                           _SyncBadge(status: boutique.syncStatus),
                         ],
                       ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Chip(
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          label: Text(boutique.specialiteLabel),
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         boutique.nomGerantComplet,
@@ -67,20 +79,68 @@ class BoutiqueCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const SizedBox(height: 8),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.phone, size: 16),
+                          const Icon(Icons.schedule, size: 16),
                           const SizedBox(width: 4),
                           Text(
-                            boutique.telephone.isEmpty
-                                ? 'Telephone non renseigne'
-                                : boutique.telephone,
-                            style: theme.textTheme.bodySmall,
+                            buildSubmissionLabel(boutique.submittedAt),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[700],
+                            ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      if (boutique.telephones.isEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.phone, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Telephone non renseigne',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (var i = 0; i < displayedPhones.length; i++)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: (i == displayedPhones.length - 1 &&
+                                          extraPhones <= 0)
+                                      ? 0
+                                      : 4,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.phone, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      displayedPhones[i],
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (extraPhones > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 22),
+                                child: Text(
+                                  '+$extraPhones numeros supplementaires',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -114,9 +174,9 @@ class BoutiqueCard extends StatelessWidget {
 }
 
 class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({this.photoPath});
+  const _Thumbnail({required this.photoPaths});
 
-  final String? photoPath;
+  final List<String> photoPaths;
 
   @override
   Widget build(BuildContext context) {
@@ -127,9 +187,38 @@ class _Thumbnail extends StatelessWidget {
         width: 76,
         height: 76,
         color: const Color(0xFFE5E7EB),
-        child: photoPath == null
-            ? const Icon(Icons.storefront, size: 32, color: Color(0xFF1D4ED8))
-            : _buildThumbnailImage(photoPath!),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (photoPaths.isEmpty)
+              const Center(
+                child: Icon(Icons.storefront, size: 32, color: Color(0xFF1D4ED8)),
+              )
+            else
+              _buildThumbnailImage(photoPaths.first),
+            if (photoPaths.length > 1)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '+${photoPaths.length - 1}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

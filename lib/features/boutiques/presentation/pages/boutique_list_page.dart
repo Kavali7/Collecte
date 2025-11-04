@@ -7,6 +7,7 @@ import '../../../auth/controllers/auth_controller.dart';
 import '../../../auth/domain/auth_state.dart';
 import '../../application/boutique_controller.dart';
 import '../widgets/boutique_card.dart';
+import '../widgets/boutique_dashboard.dart';
 
 class BoutiqueListPage extends ConsumerWidget {
   const BoutiqueListPage({super.key});
@@ -16,71 +17,90 @@ class BoutiqueListPage extends ConsumerWidget {
     final state = ref.watch(boutiqueListControllerProvider);
     final controller = ref.read(boutiqueListControllerProvider.notifier);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes boutiques'),
-        actions: [
-          IconButton(
-            tooltip: 'Voir la carte',
-            onPressed: () => context.pushNamed(AppRoute.boutiqueMap.name),
-            icon: const Icon(Icons.map_outlined),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Mes boutiques'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.list_alt_outlined), text: 'Liste'),
+              Tab(icon: Icon(Icons.insights_outlined), text: 'Tableau de bord'),
+            ],
           ),
-          IconButton(
-            tooltip: 'Se deconnecter',
-            onPressed: () =>
-                ref.read(authControllerProvider.notifier).signOut(),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.pushNamed(AppRoute.boutiqueNew.name),
-        label: const Text('Nouvelle boutique'),
-        icon: const Icon(Icons.add),
-      ),
-      body: RefreshIndicator(
-        onRefresh: controller.initialize,
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            _WelcomeHeader(authState: ref.watch(authControllerProvider)),
-            const SizedBox(height: 16),
-            TextField(
-              onChanged: controller.search,
-              decoration: const InputDecoration(
-                labelText: 'Rechercher une boutique ou un gerant',
-                prefixIcon: Icon(Icons.search),
-              ),
+          actions: [
+            IconButton(
+              tooltip: 'Voir la carte',
+              onPressed: () => context.pushNamed(AppRoute.boutiqueMap.name),
+              icon: const Icon(Icons.map_outlined),
             ),
-            const SizedBox(height: 16),
-            if (state.isLoading)
-              const Padding(
-                padding: EdgeInsets.only(top: 80),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (state.filteredBoutiques.isEmpty)
-              _EmptyState(
-                onCreate: () => context.pushNamed(AppRoute.boutiqueNew.name),
-              )
-            else
-              ...state.filteredBoutiques.map(
-                (boutique) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: BoutiqueCard(
-                    boutique: boutique,
-                    onTap: () => context.pushNamed(
-                      AppRoute.boutiqueDetail.name,
-                      pathParameters: {'id': boutique.id},
-                    ),
-                    onEdit: () => context.pushNamed(
-                      AppRoute.boutiqueEdit.name,
-                      pathParameters: {'id': boutique.id},
+            IconButton(
+              tooltip: 'Se deconnecter',
+              onPressed: () =>
+                  ref.read(authControllerProvider.notifier).signOut(),
+              icon: const Icon(Icons.logout),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => context.pushNamed(AppRoute.boutiqueNew.name),
+          label: const Text('Nouvelle boutique'),
+          icon: const Icon(Icons.add),
+        ),
+        body: TabBarView(
+          children: [
+            RefreshIndicator(
+              onRefresh: controller.initialize,
+              child: ListView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _WelcomeHeader(authState: ref.watch(authControllerProvider)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    onChanged: controller.search,
+                    decoration: const InputDecoration(
+                      labelText: 'Rechercher une boutique ou un gerant',
+                      prefixIcon: Icon(Icons.search),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  if (state.isLoading)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 80),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (state.filteredBoutiques.isEmpty)
+                    _EmptyState(
+                      onCreate: () =>
+                          context.pushNamed(AppRoute.boutiqueNew.name),
+                    )
+                  else
+                    ...state.filteredBoutiques.map(
+                      (boutique) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: BoutiqueCard(
+                          boutique: boutique,
+                          onTap: () => context.pushNamed(
+                            AppRoute.boutiqueDetail.name,
+                            pathParameters: {'id': boutique.id},
+                          ),
+                          onEdit: () => context.pushNamed(
+                            AppRoute.boutiqueEdit.name,
+                            pathParameters: {'id': boutique.id},
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 32),
+                ],
               ),
-            const SizedBox(height: 32),
+            ),
+            BoutiqueDashboard(
+              state: state,
+              onRefresh: controller.initialize,
+            ),
           ],
         ),
       ),

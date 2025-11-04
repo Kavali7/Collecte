@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../application/boutique_map_controller.dart';
+import '../../application/boutique_map_state.dart';
 import '../../domain/boutique.dart';
 
 const _tileStoreName = 'collecteCache';
@@ -18,9 +19,12 @@ class BoutiqueMapPage extends ConsumerStatefulWidget {
 }
 
 class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
+  late final MapController _mapController;
+
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
     Future.microtask(
       () => ref.read(boutiqueMapControllerProvider.notifier).initialize(),
     );
@@ -32,10 +36,17 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
     final controller = ref.read(boutiqueMapControllerProvider.notifier);
 
     final markers = _buildMarkers(state.boutiques);
-    final hasMarkers = markers.isNotEmpty;
-    final initialCenter = hasMarkers
+    final hasBoutiqueMarkers = markers.isNotEmpty;
+    final userLocation = state.userLocation;
+    final userLatLng = userLocation != null
+        ? LatLng(userLocation.latitude, userLocation.longitude)
+        : null;
+    final userMarker = _buildUserMarker(userLatLng);
+    final allMarkers = [...markers, if (userMarker != null) userMarker];
+    final shouldShowMap = allMarkers.isNotEmpty;
+    final initialCenter = hasBoutiqueMarkers
         ? markers.first.point
-        : const LatLng(5.3476, -4.0264); // Abidjan default
+        : (userLatLng ?? const LatLng(5.3476, -4.0264)); // Abidjan default
 
     return Scaffold(
       appBar: AppBar(
@@ -49,12 +60,13 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
       ),
       body: Stack(
         children: [
-          if (!hasMarkers && state.isLoading)
+          if (!shouldShowMap && state.isLoading)
             const Center(child: CircularProgressIndicator())
-          else if (!hasMarkers)
+          else if (!shouldShowMap)
             _EmptyMapState(isOffline: state.isOffline)
           else
             FlutterMap(
+              mapController: _mapController,
               options: MapOptions(
                 initialCenter: initialCenter,
                 initialZoom: 12,
@@ -65,11 +77,20 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
                   userAgentPackageName: 'com.collecte.revendeurs',
                   tileProvider: _tileStore.getTileProvider(),
                 ),
-                MarkerLayer(markers: markers),
+                MarkerLayer(markers: allMarkers),
               ],
             ),
-          if (state.isLoading && hasMarkers)
+          if (state.isLoading && hasBoutiqueMarkers)
             const Positioned(top: 24, right: 24, child: _LoadingBanner()),
+          if (state.locationErrorMessage != null)
+            Positioned(
+              bottom: state.errorMessage != null ? 96 : 24,
+              left: 16,
+              right: 16,
+              child: _LocationMessageBanner(
+                message: state.locationErrorMessage!,
+              ),
+            ),
           if (state.errorMessage != null)
             Positioned(
               bottom: 24,
@@ -86,21 +107,7 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
             ),
         ],
       ),
-      floatingActionButton: state.isOffline
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: state.isSyncing ? null : controller.sync,
-              icon: state.isSyncing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.sync),
-              label: Text(
-                state.isSyncing ? 'Synchronisation...' : 'Synchroniser',
-              ),
-            ),
+      floatingActionButton: _buildFloatingButtons(state, controller),
     );
   }
 
@@ -129,6 +136,107 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
           ),
         )
         .toList(growable: false);
+  }
+
+  Marker? _buildUserMarker(LatLng? latLng) {
+    if (latLng == null) return null;
+    return Marker(
+      point: latLng,
+      width: 48,
+      height: 48,
+      alignment: Alignment.center,
+      child: Tooltip(
+        message: 'Ta position actuelle',
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: const BoxDecoration(
+                color: Color(0x5960A5FA),
+                shape: BoxShape.circle,
+              ),
+            ),
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1D4ED8),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildFloatingButtons(
+    BoutiqueMapState state,
+    BoutiqueMapController controller,
+  ) {
+    final buttons = <Widget>[];
+    final hasUserLocation = state.userLocation != null;
+    final isRequestingLocation = state.isLocatingUser && !hasUserLocation;
+
+    buttons.add(
+      FloatingActionButton.extended(
+        heroTag: 'my-position',
+        onPressed: isRequestingLocation
+            ? null
+            : () => _handleMyPositionPressed(state, controller),
+        icon: isRequestingLocation
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.my_location),
+        label: const Text('Ma position'),
+      ),
+    );
+
+    if (!state.isOffline) {
+      buttons.add(const SizedBox(height: 12));
+      buttons.add(
+        FloatingActionButton.extended(
+          heroTag: 'sync-boutiques',
+          onPressed: state.isSyncing ? null : controller.sync,
+          icon: state.isSyncing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.sync),
+          label: Text(state.isSyncing ? 'Synchronisation...' : 'Synchroniser'),
+        ),
+      );
+    }
+
+    if (buttons.isEmpty) {
+      return null;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: buttons,
+    );
+  }
+
+  void _handleMyPositionPressed(
+    BoutiqueMapState state,
+    BoutiqueMapController controller,
+  ) {
+    final location = state.userLocation;
+    if (location != null) {
+      _mapController.move(LatLng(location.latitude, location.longitude), 16);
+    } else {
+      controller.refreshUserLocation();
+    }
   }
 }
 
@@ -228,6 +336,39 @@ class _OfflineBanner extends StatelessWidget {
               'Carte en mode hors ligne (affichage des donnees en cache)',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFF92400E),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationMessageBanner extends StatelessWidget {
+  const _LocationMessageBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      elevation: 3,
+      borderRadius: BorderRadius.circular(12),
+      color: const Color(0xFFE0F2FE),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(Icons.my_location, color: Color(0xFF1D4ED8)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF1E3A8A),
+                ),
               ),
             ),
           ],

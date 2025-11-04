@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/controllers/auth_controller.dart';
 import '../../../core/network/connectivity_service.dart';
 import '../../../core/network/connectivity_providers.dart';
+import '../../../core/location/location_providers.dart';
+import '../../../core/location/location_service.dart';
 import '../data/boutique_repository.dart';
 import '../data/cache/boutique_cache_store.dart';
 import '../data/firebase_boutique_repository.dart';
@@ -15,18 +18,36 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     required BoutiqueRepository repository,
     required BoutiqueCacheStore cacheStore,
     required ConnectivityService connectivityService,
+    required LocationService locationService,
+    required String? collectorId,
   }) : _repository = repository,
        _cacheStore = cacheStore,
        _connectivityService = connectivityService,
+       _locationService = locationService,
+       _collectorId = collectorId,
        super(const BoutiqueMapState.initial());
 
   final BoutiqueRepository _repository;
   final BoutiqueCacheStore _cacheStore;
   final ConnectivityService _connectivityService;
+  final LocationService _locationService;
+  final String? _collectorId;
 
   StreamSubscription<bool>? _connectivitySub;
+  StreamSubscription<DeviceLocation>? _userLocationSub;
 
   Future<void> initialize() async {
+    final collectorId = _collectorId;
+    if (collectorId == null || collectorId.isEmpty) {
+      state = state.copyWith(
+        boutiques: const [],
+        isLoading: false,
+        isOffline: false,
+        resetError: true,
+      );
+      return;
+    }
+
     final cached = await _cacheStore.load();
     final isOnline = await _connectivityService.isOnline();
     state = state.copyWith(
@@ -41,13 +62,26 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     );
 
     if (isOnline) {
-      await _refreshFromRemote(showLoading: cached.isEmpty);
+      await _refreshFromRemote(
+        collectorId: collectorId,
+        showLoading: cached.isEmpty,
+      );
     } else {
       state = state.copyWith(isLoading: false);
     }
+
+    await refreshUserLocation();
   }
 
   Future<void> sync() async {
+    final collectorId = _collectorId;
+    if (collectorId == null || collectorId.isEmpty) {
+      state = state.copyWith(
+        errorMessage: 'Utilisateur non authentifie.',
+        resetError: false,
+      );
+      return;
+    }
     final isOnline = await _connectivityService.isOnline();
     if (!isOnline) {
       state = state.copyWith(
@@ -60,7 +94,10 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     state = state.copyWith(isSyncing: true, resetError: true);
     try {
       await _pushPending();
-      await _refreshFromRemote(showLoading: false);
+      await _refreshFromRemote(
+        collectorId: collectorId,
+        showLoading: false,
+      );
     } catch (_) {
       state = state.copyWith(
         errorMessage: 'Une erreur est survenue pendant la synchronisation.',
@@ -74,15 +111,42 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
   @override
   void dispose() {
     _connectivitySub?.cancel();
+    _userLocationSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _refreshFromRemote({required bool showLoading}) async {
+  Future<void> refreshUserLocation() async {
+    state = state.copyWith(isLocatingUser: true, resetLocationError: true);
+
+    final result = await _locationService.getCurrentLocation();
+    if (result.hasLocation && result.location != null) {
+      state = state.copyWith(
+        userLocation: result.location,
+        isLocatingUser: false,
+        resetLocationError: true,
+      );
+      _startUserLocationStream();
+    } else if (result.failure != null) {
+      state = state.copyWith(
+        isLocatingUser: false,
+        locationErrorMessage: result.failure!.message,
+        clearUserLocation: true,
+        resetLocationError: false,
+      );
+    } else {
+      state = state.copyWith(isLocatingUser: false);
+    }
+  }
+
+  Future<void> _refreshFromRemote({
+    required String collectorId,
+    required bool showLoading,
+  }) async {
     if (showLoading) {
       state = state.copyWith(isLoading: true, resetError: true);
     }
     try {
-      final remote = await _repository.loadBoutiques();
+      final remote = await _repository.loadBoutiques(collectorId);
       final merged = await _mergeWithLocalPending(remote);
       await _cacheStore.saveAll(merged);
       state = state.copyWith(
@@ -172,18 +236,39 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
   void _onConnectivityChanged(bool isOnline) {
     state = state.copyWith(isOffline: !isOnline);
   }
+
+  void _startUserLocationStream() {
+    _userLocationSub ??= _locationService.watchPosition().listen(
+      (location) {
+        state = state.copyWith(
+          userLocation: location,
+          resetLocationError: true,
+        );
+      },
+      onError: (_) {
+        state = state.copyWith(locationErrorMessage: 'Suivi GPS indisponible.');
+      },
+    );
+  }
 }
 
 final boutiqueMapControllerProvider =
     StateNotifierProvider.autoDispose<BoutiqueMapController, BoutiqueMapState>((
       ref,
     ) {
+      final authState = ref.watch(authControllerProvider);
+      final firebaseAuth = ref.watch(firebaseAuthProvider);
+      final collectorId =
+          authState.isAuthenticated ? firebaseAuth.currentUser?.uid : null;
       final repository = ref.watch(boutiqueRepositoryProvider);
       final cacheStore = ref.watch(boutiqueCacheStoreProvider);
       final connectivityService = ref.watch(connectivityServiceProvider);
+      final locationService = ref.watch(locationServiceProvider);
       return BoutiqueMapController(
         repository: repository,
         cacheStore: cacheStore,
         connectivityService: connectivityService,
+        locationService: locationService,
+        collectorId: collectorId,
       );
     });
