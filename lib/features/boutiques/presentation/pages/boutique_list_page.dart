@@ -30,6 +30,11 @@ class BoutiqueListPage extends ConsumerWidget {
           ),
           actions: [
             IconButton(
+              tooltip: 'Itineraire du collecteur',
+              onPressed: () => context.pushNamed(AppRoute.agentItinerary.name),
+              icon: const Icon(Icons.route_outlined),
+            ),
+            IconButton(
               tooltip: 'Voir la carte',
               onPressed: () => context.pushNamed(AppRoute.boutiqueMap.name),
               icon: const Icon(Icons.map_outlined),

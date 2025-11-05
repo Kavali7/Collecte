@@ -10,6 +10,7 @@ import '../features/boutiques/presentation/pages/boutique_detail_page.dart';
 import '../features/boutiques/presentation/pages/boutique_form_page.dart';
 import '../features/boutiques/presentation/pages/boutique_list_page.dart';
 import '../features/boutiques/presentation/pages/boutique_map_page.dart';
+import '../features/itinerary/presentation/agent_itinerary_page.dart';
 import 'app_route.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -23,6 +24,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/auth',
         name: AppRoute.auth.name,
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/itineraire',
+        name: AppRoute.agentItinerary.name,
+        builder: (context, state) => const AgentItineraryPage(),
       ),
       GoRoute(
         path: '/boutiques',
@@ -69,6 +75,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = authState.isAuthenticated;
       final isLoading = authState.isLoading;
       final isAuthRoute = state.matchedLocation == '/auth';
+      final isItineraryRoute = state.matchedLocation == '/itineraire';
 
       if (isLoading) return null;
 
@@ -77,6 +84,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthenticated && isAuthRoute) {
+        return '/boutiques';
+      }
+
+      if (!isAuthenticated && isItineraryRoute) {
+        return '/auth';
+      }
+
+      if (isAuthenticated && state.matchedLocation == '/') {
         return '/boutiques';
       }
 

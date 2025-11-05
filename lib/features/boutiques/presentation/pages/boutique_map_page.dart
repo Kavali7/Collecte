@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../application/boutique_map_controller.dart';
 import '../../application/boutique_map_state.dart';
 import '../../domain/boutique.dart';
+import '../../../../routing/app_route.dart';
 
 const _tileStoreName = 'collecteCache';
 final FMTCStore _tileStore = FMTCStore(_tileStoreName);
@@ -50,8 +52,27 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leadingWidth: 56,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            } else {
+              context.goNamed(AppRoute.boutiques.name);
+            }
+          },
+        ),
         title: const Text('Carte des collectes'),
         actions: [
+          IconButton(
+            tooltip: 'Itineraire du collecteur',
+            icon: const Icon(Icons.route_outlined),
+            onPressed: () =>
+                context.pushNamed(AppRoute.agentItinerary.name),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: _StatusChip(isOffline: state.isOffline),
