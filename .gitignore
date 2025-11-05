@@ -52,3 +52,6 @@ android/key.properties
 # Node related
 node_modules/
 scripts/node_modules/
+
+# Firebase service accounts (never commit secrets)
+collecte-9b6e1-firebase-adminsdk-fbsvc-44358eb6da.json
