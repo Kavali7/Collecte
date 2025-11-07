@@ -71,10 +71,7 @@ class _NoopLocationService implements LocationService {
   @override
   Future<LocationResult> getCurrentLocation() async {
     return const LocationResult.failure(
-      LocationFailure(
-        type: LocationFailureType.unknown,
-        message: 'noop',
-      ),
+      LocationFailure(type: LocationFailureType.unknown, message: 'noop'),
     );
   }
 
@@ -94,16 +91,12 @@ class _StubCollectorTrackRecorder extends CollectorTrackRecorder {
 }
 
 void main() {
-  testWidgets('shows summary, map and status messages', (tester) async {
+  testWidgets('shows enlarged map and journal table', (tester) async {
     final stubState = AgentItineraryState(
       selectedDate: DateTime(2024, 2, 10),
       points: const [],
       geoPoints: const [],
       isLoading: false,
-    );
-    final recorderState = const CollectorTrackRecorderState(
-      pendingPoints: 3,
-      errorMessage: 'Erreur reseau pendant la synchronisation.',
     );
 
     await tester.pumpWidget(
@@ -113,7 +106,9 @@ void main() {
             (ref) => _StubAgentItineraryController(stubState),
           ),
           collectorTrackRecorderProvider.overrideWith(
-            (ref) => _StubCollectorTrackRecorder(recorderState),
+            (ref) => _StubCollectorTrackRecorder(
+              const CollectorTrackRecorderState(),
+            ),
           ),
         ],
         child: const MaterialApp(home: AgentItineraryPage()),
@@ -123,9 +118,51 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(FlutterMap), findsOneWidget);
-    expect(find.text('0 arrets enregistres'), findsOneWidget);
-    expect(find.text('Aucun trajet'), findsOneWidget);
-    expect(find.text('Synchronisation en attente (3)'), findsOneWidget);
-    expect(find.text('Erreur reseau/permissions'), findsOneWidget);
+    expect(find.text('Quartier'), findsOneWidget);
+    expect(find.text('Heure d\'arrivee'), findsOneWidget);
+    expect(find.text('Aucun arret confirme pour cette date.'), findsOneWidget);
+  });
+
+  testWidgets('map section height remains above half of viewport', (
+    tester,
+  ) async {
+    final view = tester.view;
+    view.physicalSize = const Size(400, 900);
+    view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      view.resetPhysicalSize();
+      view.resetDevicePixelRatio();
+    });
+
+    final stubState = AgentItineraryState(
+      selectedDate: DateTime(2024, 2, 10),
+      points: const [],
+      geoPoints: const [],
+      isLoading: false,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          agentItineraryControllerProvider.overrideWith(
+            (ref) => _StubAgentItineraryController(stubState),
+          ),
+          collectorTrackRecorderProvider.overrideWith(
+            (ref) => _StubCollectorTrackRecorder(
+              const CollectorTrackRecorderState(),
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: AgentItineraryPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final screenHeight = view.physicalSize.height / view.devicePixelRatio;
+    final mapFinder = find.byType(ItineraryMapSection);
+    final mapSize = tester.getSize(mapFinder);
+    expect(mapSize.height, greaterThanOrEqualTo(screenHeight * 0.5));
+    expect((mapSize.height - screenHeight * 0.6).abs(), lessThanOrEqualTo(1));
   });
 }

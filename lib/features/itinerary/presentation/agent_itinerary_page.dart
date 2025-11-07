@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
@@ -11,6 +13,7 @@ import '../application/agent_itinerary_controller.dart';
 import '../application/agent_itinerary_state.dart';
 import '../application/collector_track_recorder.dart';
 import '../domain/collector_track_point.dart';
+import 'widgets/itinerary_journal_table.dart';
 
 const _tileStoreName = 'collecteCache';
 final FMTCStore _tileStore = FMTCStore(_tileStoreName);
@@ -20,12 +23,11 @@ class AgentItineraryPage extends ConsumerStatefulWidget {
   const AgentItineraryPage({super.key});
 
   @override
-  ConsumerState<AgentItineraryPage> createState() =>
-      _AgentItineraryPageState();
+  ConsumerState<AgentItineraryPage> createState() => _AgentItineraryPageState();
 }
 
-class _AgentItineraryPageState
-    extends ConsumerState<AgentItineraryPage> with RouteAware {
+class _AgentItineraryPageState extends ConsumerState<AgentItineraryPage>
+    with RouteAware {
   late final MapController _mapController;
   RouteObserver<ModalRoute<void>>? _routeObserver;
 
@@ -73,18 +75,14 @@ class _AgentItineraryPageState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor:
-            isWarning ? colorScheme.error : colorScheme.primary,
+        backgroundColor: isWarning ? colorScheme.error : colorScheme.primary,
       ),
     );
   }
 
   void _fitBounds(LatLngBounds bounds) {
     _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: bounds,
-        padding: const EdgeInsets.all(32),
-      ),
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(32)),
     );
   }
 
@@ -92,25 +90,35 @@ class _AgentItineraryPageState
   Widget build(BuildContext context) {
     final state = ref.watch(agentItineraryControllerProvider);
     final controller = ref.read(agentItineraryControllerProvider.notifier);
-    final recorderState = ref.watch(collectorTrackRecorderProvider);
-    ref.listen<AgentItineraryState>(
-      agentItineraryControllerProvider,
-      (previous, next) {
-        if (next.errorMessage != null &&
-            next.errorMessage != previous?.errorMessage) {
-          _showSnack(next.errorMessage!, isWarning: true);
-        }
-        if (next.locationErrorMessage != null &&
-            next.locationErrorMessage != previous?.locationErrorMessage) {
-          _showSnack(next.locationErrorMessage!, isWarning: false);
-        }
-        final hasNewBounds = next.bounds != null &&
-            next.bounds != previous?.bounds &&
-            next.geoPoints.isNotEmpty;
-        if (hasNewBounds && next.bounds != null) {
-          _fitBounds(next.bounds!);
-        }
-      },
+    ref.listen<AgentItineraryState>(agentItineraryControllerProvider, (
+      previous,
+      next,
+    ) {
+      if (next.errorMessage != null &&
+          next.errorMessage != previous?.errorMessage) {
+        _showSnack(next.errorMessage!, isWarning: true);
+      }
+      if (next.locationErrorMessage != null &&
+          next.locationErrorMessage != previous?.locationErrorMessage) {
+        _showSnack(next.locationErrorMessage!, isWarning: false);
+      }
+      final hasNewBounds =
+          next.bounds != null &&
+          next.bounds != previous?.bounds &&
+          next.geoPoints.isNotEmpty;
+      if (hasNewBounds && next.bounds != null) {
+        _fitBounds(next.bounds!);
+      }
+    });
+
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final mapHeight = math.max(320.0, screenHeight * 0.6);
+    final tableHeight = math.max(280.0, screenHeight * 0.25);
+    final now = DateTime.now();
+    final journalEntries = buildItineraryJournalEntries(
+      state.points,
+      currentTime: now,
     );
 
     return Scaffold(
@@ -127,8 +135,7 @@ class _AgentItineraryPageState
           IconButton(
             tooltip: 'Carte des boutiques',
             icon: const Icon(Icons.map_outlined),
-            onPressed: () =>
-                context.pushNamed(AppRoute.boutiqueMap.name),
+            onPressed: () => context.pushNamed(AppRoute.boutiqueMap.name),
           ),
           IconButton(
             tooltip: 'Liste des boutiques',
@@ -149,9 +156,10 @@ class _AgentItineraryPageState
                 onSelectDate: (picked) => controller.changeDate(picked),
               ),
               const SizedBox(height: 16),
-              _MapSection(
+              ItineraryMapSection(
                 state: state,
                 mapController: _mapController,
+                height: mapHeight,
               ),
               if (state.locationErrorMessage != null)
                 Padding(
@@ -159,11 +167,9 @@ class _AgentItineraryPageState
                   child: _InfoBanner(message: state.locationErrorMessage!),
                 ),
               const SizedBox(height: 16),
-              _TrackSummaryCard(
-                pointsCount: state.points.length,
-                pendingCount: recorderState.pendingPoints,
-                hasPendingSync: recorderState.hasPendingSync,
-                hasError: recorderState.hasError || state.errorMessage != null,
+              ItineraryJournalTable(
+                entries: journalEntries,
+                height: tableHeight,
               ),
               const SizedBox(height: 24),
             ],
@@ -187,8 +193,9 @@ class _ItineraryControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate =
-        MaterialLocalizations.of(context).formatMediumDate(selectedDate);
+    final formattedDate = MaterialLocalizations.of(
+      context,
+    ).formatMediumDate(selectedDate);
     return Row(
       children: [
         Expanded(
@@ -197,10 +204,9 @@ class _ItineraryControls extends StatelessWidget {
             children: [
               Text(
                 'Date analyse',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(color: Colors.grey[700]),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: Colors.grey[700]),
               ),
               const SizedBox(height: 4),
               OutlinedButton.icon(
@@ -232,14 +238,17 @@ class _ItineraryControls extends StatelessWidget {
   }
 }
 
-class _MapSection extends StatelessWidget {
-  const _MapSection({
+class ItineraryMapSection extends StatelessWidget {
+  const ItineraryMapSection({
+    super.key,
     required this.state,
     required this.mapController,
+    required this.height,
   });
 
   final AgentItineraryState state;
   final MapController mapController;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +259,7 @@ class _MapSection extends StatelessWidget {
     final markers = _buildMarkers(points);
 
     return SizedBox(
-      height: 280,
+      height: height,
       child: Card(
         clipBehavior: Clip.hardEdge,
         child: Stack(
@@ -265,8 +274,7 @@ class _MapSection extends StatelessWidget {
               ),
               children: [
                 TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.collecte.revendeurs',
                   tileProvider: _tileStore.getTileProvider(),
                 ),
@@ -433,124 +441,4 @@ class _InfoBanner extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TrackSummaryCard extends StatelessWidget {
-  const _TrackSummaryCard({
-    required this.pointsCount,
-    required this.pendingCount,
-    required this.hasPendingSync,
-    required this.hasError,
-  });
-
-  final int pointsCount;
-  final int pendingCount;
-  final bool hasPendingSync;
-  final bool hasError;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final messages = <_SummaryMessage>[];
-    if (pointsCount == 0) {
-      messages.add(
-        _SummaryMessage(
-          label: 'Aucun trajet',
-          color: const Color(0xFF6B7280),
-          icon: Icons.route,
-        ),
-      );
-    }
-    if (hasPendingSync) {
-      final label = pendingCount > 0
-          ? 'Synchronisation en attente ($pendingCount)'
-          : 'Synchronisation en attente';
-      messages.add(
-        _SummaryMessage(
-          label: label,
-          color: const Color(0xFFF97316),
-          icon: Icons.sync_problem,
-        ),
-      );
-    }
-    if (hasError) {
-      messages.add(
-        _SummaryMessage(
-          label: 'Erreur reseau/permissions',
-          color: theme.colorScheme.error,
-          icon: Icons.warning_amber_rounded,
-        ),
-      );
-    }
-
-    final summaryLabel = '$pointsCount arrets enregistres';
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              summaryLabel,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (messages.isEmpty)
-              Row(
-                children: [
-                  Icon(Icons.check_circle_outline,
-                      color: theme.colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Trajet synchronise.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
-              )
-            else
-              Column(
-                children: messages
-                    .map(
-                      (message) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Icon(message.icon, color: message.color, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                message.label,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: message.color,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryMessage {
-  const _SummaryMessage({
-    required this.label,
-    required this.color,
-    required this.icon,
-  });
-
-  final String label;
-  final Color color;
-  final IconData icon;
 }

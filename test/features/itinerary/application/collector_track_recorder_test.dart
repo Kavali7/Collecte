@@ -95,15 +95,22 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
 
+    Future<void> emitStableStop(DeviceLocation location) async {
+      locationService.emitLocation(location);
+      await drainMicrotasks();
+      currentTime = currentTime.add(const Duration(minutes: 4));
+      locationService.emitLocation(location);
+      await drainMicrotasks();
+    }
+
     test('records points offline and keeps them pending', () async {
       repository.throwOnSync = true;
       final recorder = buildRecorder();
       await drainMicrotasks();
 
-      locationService.emitLocation(
+      await emitStableStop(
         const DeviceLocation(latitude: 5.2, longitude: -4.2),
       );
-      await drainMicrotasks();
 
       expect(recorder.state.pendingPoints, equals(1));
       expect(recorder.state.hasPendingSync, isTrue);
@@ -115,10 +122,9 @@ void main() {
       final recorder = buildRecorder();
       await drainMicrotasks();
 
-      locationService.emitLocation(
+      await emitStableStop(
         const DeviceLocation(latitude: 5.4, longitude: -4.2),
       );
-      await drainMicrotasks();
 
       currentTime = DateTime(2024, 1, 1, 9);
       await recorder.syncNow();

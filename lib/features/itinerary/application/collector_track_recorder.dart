@@ -10,6 +10,7 @@ import '../data/collector_track_repository.dart';
 import '../data/firestore_collector_track_repository.dart';
 import '../domain/collector_track_point.dart';
 import 'collector_track_recorder_state.dart';
+import 'stop_detector.dart';
 
 class CollectorTrackRecorder
     extends StateNotifier<CollectorTrackRecorderState> {
@@ -19,12 +20,15 @@ class CollectorTrackRecorder
     required String? collectorId,
     Duration syncInterval = const Duration(minutes: 5),
     DateTime Function()? clock,
-  })  : _repository = repository,
-        _locationService = locationService,
-        _collectorId = collectorId,
-        _syncInterval = syncInterval,
-        _clock = clock ?? DateTime.now,
-        super(const CollectorTrackRecorderState()) {
+    StopDetector? stopDetector,
+  }) : _repository = repository,
+       _locationService = locationService,
+       _collectorId = collectorId,
+       _syncInterval = syncInterval,
+       _clock = clock ?? DateTime.now,
+       _stopDetector =
+           stopDetector ?? StopDetector(clock: clock ?? DateTime.now),
+       super(const CollectorTrackRecorderState()) {
     _boot();
   }
 
@@ -33,6 +37,7 @@ class CollectorTrackRecorder
   final String? _collectorId;
   final Duration _syncInterval;
   final DateTime Function() _clock;
+  final StopDetector _stopDetector;
   final Uuid _uuid = const Uuid();
 
   StreamSubscription<DeviceLocation>? _locationSubscription;
@@ -69,27 +74,21 @@ class CollectorTrackRecorder
           errorMessage: result.failure!.message,
         );
       } else if (result.hasLocation) {
-        state = state.copyWith(
-          resetLocationFailure: true,
-          resetError: true,
-        );
+        state = state.copyWith(resetLocationFailure: true, resetError: true);
       }
     } catch (_) {
       if (!mounted) return;
-      state = state.copyWith(
-        errorMessage: 'Erreur reseau/permissions',
-      );
+      state = state.copyWith(errorMessage: 'Erreur reseau/permissions');
     }
   }
 
   void _startLocationStream() {
     if (_activeCollectorId == null) return;
     _locationSubscription?.cancel();
+    _stopDetector.reset();
     _locationSubscription = _locationService.watchPosition().listen(
       (location) {
-        _recordingChain = _recordingChain.then(
-          (_) => _recordSample(location),
-        );
+        _recordingChain = _recordingChain.then((_) => _recordSample(location));
       },
       onError: (error) {
         if (!mounted) return;
@@ -114,29 +113,23 @@ class CollectorTrackRecorder
   Future<void> _recordSample(DeviceLocation location) async {
     final collectorId = _activeCollectorId;
     if (collectorId == null) return;
+    final stopEvent = _stopDetector.register(location);
+    if (stopEvent == null) return;
     final point = CollectorTrackPoint(
       id: 'local-${_uuid.v4()}',
       quartier: 'Quartier inconnu',
-      latitude: location.latitude,
-      longitude: location.longitude,
-      timestamp: _clock(),
+      latitude: stopEvent.latitude,
+      longitude: stopEvent.longitude,
+      timestamp: stopEvent.arrivedAt,
     );
     try {
-      await _repository.enqueuePoint(
-        collectorId: collectorId,
-        point: point,
-      );
+      await _repository.enqueuePoint(collectorId: collectorId, point: point);
       await _refreshPendingCount();
       if (!mounted) return;
-      state = state.copyWith(
-        resetError: true,
-        resetLocationFailure: true,
-      );
+      state = state.copyWith(resetError: true, resetLocationFailure: true);
     } catch (_) {
       if (!mounted) return;
-      state = state.copyWith(
-        errorMessage: 'Erreur reseau/permissions',
-      );
+      state = state.copyWith(errorMessage: 'Erreur reseau/permissions');
     }
   }
 
@@ -165,17 +158,11 @@ class CollectorTrackRecorder
     try {
       final results = await _repository.syncPending(collectorId: collectorId);
       for (final result in results) {
-        await _repository.markSynced(
-          collectorId: collectorId,
-          result: result,
-        );
+        await _repository.markSynced(collectorId: collectorId, result: result);
       }
       await _refreshPendingCount();
       if (!mounted) return;
-      state = state.copyWith(
-        isSyncing: false,
-        lastSyncAt: _clock(),
-      );
+      state = state.copyWith(isSyncing: false, lastSyncAt: _clock());
     } catch (_) {
       if (!mounted) return;
       state = state.copyWith(
@@ -200,17 +187,20 @@ class CollectorTrackRecorder
   }
 }
 
-final collectorTrackRecorderProvider = StateNotifierProvider<
-    CollectorTrackRecorder, CollectorTrackRecorderState>((ref) {
-  final repository = ref.watch(collectorTrackRepositoryProvider);
-  final locationService = ref.watch(locationServiceProvider);
-  final authState = ref.watch(authControllerProvider);
-  final firebaseAuth = ref.watch(firebaseAuthProvider);
-  final collectorId =
-      authState.isAuthenticated ? firebaseAuth.currentUser?.uid : null;
-  return CollectorTrackRecorder(
-    repository: repository,
-    locationService: locationService,
-    collectorId: collectorId,
-  );
-});
+final collectorTrackRecorderProvider =
+    StateNotifierProvider<CollectorTrackRecorder, CollectorTrackRecorderState>((
+      ref,
+    ) {
+      final repository = ref.watch(collectorTrackRepositoryProvider);
+      final locationService = ref.watch(locationServiceProvider);
+      final authState = ref.watch(authControllerProvider);
+      final firebaseAuth = ref.watch(firebaseAuthProvider);
+      final collectorId = authState.isAuthenticated
+          ? firebaseAuth.currentUser?.uid
+          : null;
+      return CollectorTrackRecorder(
+        repository: repository,
+        locationService: locationService,
+        collectorId: collectorId,
+      );
+    });
