@@ -1,3 +1,4 @@
+import 'package:collecte_revendeurs/core/location/location_constants.dart';
 import 'package:collecte_revendeurs/features/itinerary/domain/collector_track_point.dart';
 import 'package:collecte_revendeurs/features/itinerary/presentation/widgets/itinerary_journal_table.dart';
 import 'package:flutter/material.dart';
@@ -59,10 +60,7 @@ void main() {
         formatJournalDuration(const Duration(minutes: 12)),
         equals('12min'),
       );
-      expect(
-        formatJournalDuration(const Duration(seconds: 45)),
-        equals('45s'),
-      );
+      expect(formatJournalDuration(const Duration(seconds: 45)), equals('45s'));
     });
   });
 
@@ -97,15 +95,20 @@ void main() {
         ),
       );
 
+      expect(find.text('N°'), findsOneWidget);
       expect(find.text('Quartier'), findsOneWidget);
-      expect(find.text('Heure d\'arrivee'), findsOneWidget);
+      expect(find.text('Lat/Long'), findsOneWidget);
+      expect(find.text('Heure'), findsOneWidget);
       expect(find.text('Plateau'), findsOneWidget);
       expect(find.text('Cocody'), findsOneWidget);
-      expect(find.text('5.32010'), findsOneWidget);
-      expect(find.text('-4.02010'), findsOneWidget);
+      expect(find.text(kUnknownQuartierLabel), findsNothing);
+      expect(find.text('5.32010\n-4.02010'), findsOneWidget);
+      expect(find.text('5.35020\n-4.00110'), findsOneWidget);
       expect(find.text('10:00'), findsOneWidget);
       expect(find.text('20min'), findsOneWidget);
       expect(find.text('40min'), findsOneWidget);
+      expect(find.text('1'), findsWidgets);
+      expect(find.text('2'), findsWidgets);
     });
 
     testWidgets('supports scrolling to reveal far rows', (tester) async {

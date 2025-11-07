@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'location_constants.dart';
 import 'locationiq_config.dart';
 
 class ReverseGeocodingAddress {
@@ -19,11 +20,9 @@ class ReverseGeocodingAddress {
 }
 
 class ReverseGeocodingResult {
-  const ReverseGeocodingResult.success(this.address)
-    : errorMessage = null;
+  const ReverseGeocodingResult.success(this.address) : errorMessage = null;
 
-  const ReverseGeocodingResult.failure(this.errorMessage)
-    : address = null;
+  const ReverseGeocodingResult.failure(this.errorMessage) : address = null;
 
   final ReverseGeocodingAddress? address;
   final String? errorMessage;
@@ -42,13 +41,9 @@ class LocationIqReverseGeocodingService {
     required double longitude,
   }) async {
     if (locationIqApiKey.isEmpty) {
-      return const ReverseGeocodingResult.failure(
-        'Clé LocationIQ manquante.',
-      );
+      return const ReverseGeocodingResult.failure('ClÃ© LocationIQ manquante.');
     }
-    final uri = Uri.parse(
-      '$locationIqBaseUrl/reverse.php',
-    ).replace(
+    final uri = Uri.parse('$locationIqBaseUrl/reverse.php').replace(
       queryParameters: {
         'key': locationIqApiKey,
         'lat': latitude.toString(),
@@ -101,9 +96,7 @@ class LocationIqReverseGeocodingService {
         ),
       );
     } catch (error) {
-      return ReverseGeocodingResult.failure(
-        'Erreur de geocodage: $error',
-      );
+      return ReverseGeocodingResult.failure('Erreur de geocodage: $error');
     }
   }
 
@@ -112,9 +105,9 @@ class LocationIqReverseGeocodingService {
     String? arrondissement,
     String? quartier,
   }) {
-    final safeCity = city ?? 'Ville inconnue';
-    final safeArr = arrondissement ?? 'Arrondissement inconnu';
-    final safeQuartier = quartier ?? 'Quartier inconnu';
+    final safeCity = (city ?? kUnknownCityLabel).trim();
+    final safeArr = (arrondissement ?? kUnknownArrondissementLabel).trim();
+    final safeQuartier = (quartier ?? kUnknownQuartierLabel).trim();
     return '$safeCity / Arr: $safeArr / $safeQuartier';
   }
 
@@ -126,4 +119,24 @@ class LocationIqReverseGeocodingService {
     }
     return null;
   }
+}
+
+String? extractQuartierLabel(ReverseGeocodingAddress? address) {
+  if (address == null) return null;
+  final candidates = [
+    address.quartier,
+    address.arrondissement,
+    address.city,
+    address.formatted,
+  ];
+  for (final candidate in candidates) {
+    if (candidate != null && candidate.trim().isNotEmpty) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+String resolveQuartierLabelOrFallback(ReverseGeocodingAddress? address) {
+  return extractQuartierLabel(address) ?? kUnknownQuartierLabel;
 }

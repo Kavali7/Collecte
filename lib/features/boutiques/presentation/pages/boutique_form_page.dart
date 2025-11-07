@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'package:collecte_revendeurs/core/location/locationiq_reverse_geocoding.dart';
+import 'package:collecte_revendeurs/core/location/location_providers.dart';
 import '../../application/boutique_controller.dart';
 import '../../domain/boutique.dart';
 
@@ -24,7 +25,6 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   final _nomGerantController = TextEditingController();
   final List<_TelephoneFieldState> _telephoneFields = [];
   final _adresseController = TextEditingController();
-  final _reverseGeocodingService = LocationIqReverseGeocodingService();
   BoutiqueSpecialite? _selectedSpecialite;
   String? _collectorId;
 
@@ -43,8 +43,7 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
   bool get _hasValidatedTelephones =>
       _telephoneFields.isNotEmpty &&
       _telephoneFields.every(
-        (field) =>
-            field.isValid && field.controller.text.trim().isNotEmpty,
+        (field) => field.isValid && field.controller.text.trim().isNotEmpty,
       );
   bool get _isAnyTelephoneChecking =>
       _telephoneFields.any((field) => field.isChecking);
@@ -129,18 +128,20 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                             ),
                           )
                         : (_adresseController.text.isNotEmpty
-                            ? const Icon(Icons.check_circle, color: Colors.green)
-                            : null),
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                )
+                              : null),
                   ),
                 ),
                 if (_addressError != null) ...[
                   const SizedBox(height: 6),
                   Text(
                     _addressError!,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.red),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.red),
                   ),
                 ],
                 if (_isEditing) ...[
@@ -291,7 +292,9 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
 
     final current = field.controller.text.trim();
     final hasValidated =
-        field.isValid && field.lastValidatedValue == current && current.isNotEmpty;
+        field.isValid &&
+        field.lastValidatedValue == current &&
+        current.isNotEmpty;
 
     if (hasValidated) {
       return const Icon(Icons.check_circle, color: Color(0xFF16A34A));
@@ -327,7 +330,9 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       return;
     }
 
-    if (field.isValid || field.feedback != null || field.lastValidatedValue != null) {
+    if (field.isValid ||
+        field.feedback != null ||
+        field.lastValidatedValue != null) {
       setState(() {
         field
           ..isValid = false
@@ -561,21 +566,28 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       _addressError = null;
     });
 
-    final result = await _reverseGeocodingService.resolve(
-      latitude: latitude,
-      longitude: longitude,
-    );
+    ReverseGeocodingAddress? address;
+    String? error;
+    try {
+      final cache = ref.read(reverseGeocodingCacheProvider);
+      address = await cache.resolve(latitude: latitude, longitude: longitude);
+      if (address == null) {
+        error = 'Adresse indisponible.';
+      }
+    } catch (_) {
+      error = 'Adresse indisponible.';
+    }
 
     if (!mounted) return;
 
     setState(() {
       _isResolvingAddress = false;
-      if (result.isSuccess && result.address != null) {
-        _adresseController.text = result.address!.formatted;
+      if (address != null) {
+        _adresseController.text = address.formatted;
         _addressError = null;
       } else {
         _adresseController.clear();
-        _addressError = result.errorMessage ?? 'Adresse indisponible.';
+        _addressError = error ?? 'Adresse indisponible.';
       }
     });
   }
@@ -597,8 +609,9 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
     if (!_hasValidatedTelephones) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('Valide tous les numeros de telephone avant de continuer.'),
+          content: Text(
+            'Valide tous les numeros de telephone avant de continuer.',
+          ),
         ),
       );
       return;
@@ -768,8 +781,9 @@ class _PhotoPickerSection extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 color: const Color(0xFFE5E7EB),
-                border:
-                    Border.all(color: Colors.blueGrey.withValues(alpha: 0.1)),
+                border: Border.all(
+                  color: Colors.blueGrey.withValues(alpha: 0.1),
+                ),
               ),
               child: Center(
                 child: Column(
@@ -905,7 +919,7 @@ class _TelephoneFieldsEditor extends StatelessWidget {
   final VoidCallback onAddField;
   final void Function(_TelephoneFieldState field) onRemoveField;
   final Widget? Function(BuildContext context, _TelephoneFieldState field)
-      buildSuffix;
+  buildSuffix;
 
   @override
   Widget build(BuildContext context) {

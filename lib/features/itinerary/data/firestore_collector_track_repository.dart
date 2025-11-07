@@ -9,21 +9,22 @@ import '../domain/collector_track_point.dart';
 import 'collector_track_repository.dart';
 import 'collector_track_sync_result.dart';
 
-final collectorTrackRepositoryProvider =
-    Provider<CollectorTrackRepository>((ref) {
-      final cacheStore = ref.watch(collectorTrackCacheStoreProvider);
-      return FirestoreCollectorTrackRepository(
-        firestore: FirebaseFirestore.instance,
-        cacheStore: cacheStore,
-      );
-    });
+final collectorTrackRepositoryProvider = Provider<CollectorTrackRepository>((
+  ref,
+) {
+  final cacheStore = ref.watch(collectorTrackCacheStoreProvider);
+  return FirestoreCollectorTrackRepository(
+    firestore: FirebaseFirestore.instance,
+    cacheStore: cacheStore,
+  );
+});
 
 class FirestoreCollectorTrackRepository implements CollectorTrackRepository {
   FirestoreCollectorTrackRepository({
     required FirebaseFirestore firestore,
     required CollectorTrackCacheStore cacheStore,
-  })  : _firestore = firestore,
-        _cacheStore = cacheStore;
+  }) : _firestore = firestore,
+       _cacheStore = cacheStore;
 
   static const _collectionName = 'collector_track_points';
 
@@ -60,9 +61,7 @@ class FirestoreCollectorTrackRepository implements CollectorTrackRepository {
           final remotePoints = <CollectorTrackPoint>[];
           for (final doc in snapshot.docs) {
             try {
-              remotePoints.add(
-                CollectorTrackPoint.fromMap(doc.id, doc.data()),
-              );
+              remotePoints.add(CollectorTrackPoint.fromMap(doc.id, doc.data()));
             } catch (error) {
               debugPrint('CollectorTrackPoint ignore (${doc.id}): $error');
             }
@@ -121,8 +120,9 @@ class FirestoreCollectorTrackRepository implements CollectorTrackRepository {
     required String collectorId,
   }) async {
     if (collectorId.isEmpty) return const [];
-    final pendingEntries =
-        await _cacheStore.pendingEntries(collectorId: collectorId);
+    final pendingEntries = await _cacheStore.pendingEntries(
+      collectorId: collectorId,
+    );
     if (pendingEntries.isEmpty) return const [];
 
     final collection = _firestore.collection(_collectionName);
@@ -186,6 +186,27 @@ class FirestoreCollectorTrackRepository implements CollectorTrackRepository {
     return _cacheStore.pendingCount(collectorId: collectorId);
   }
 
+  @override
+  Future<void> updateQuartier({
+    required String collectorId,
+    required String localId,
+    required String quartier,
+  }) async {
+    if (collectorId.isEmpty) return;
+    final entry = await _cacheStore.updateQuartier(
+      localId: localId,
+      quartier: quartier,
+      collectorId: collectorId,
+    );
+    final remoteId =
+        entry?.remoteId ??
+        (entry?.status == TrackSyncStatus.synced ? entry?.point.id : null);
+    if (remoteId == null) return;
+    await _firestore.collection(_collectionName).doc(remoteId).update({
+      'quartier': quartier,
+    });
+  }
+
   Stream<QuerySnapshot<Map<String, dynamic>>> _buildDayQuery(
     String collectorId,
     DateTime day,
@@ -196,7 +217,10 @@ class FirestoreCollectorTrackRepository implements CollectorTrackRepository {
     return _firestore
         .collection(_collectionName)
         .where('collectorId', isEqualTo: collectorId)
-        .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+        .where(
+          'timestamp',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart),
+        )
         .where('timestamp', isLessThan: Timestamp.fromDate(dayEnd))
         .orderBy('timestamp')
         .snapshots();

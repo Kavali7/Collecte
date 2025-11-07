@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../core/location/location_constants.dart';
+
 class CollectorTrackPoint {
   const CollectorTrackPoint({
     required this.id,
@@ -9,11 +11,8 @@ class CollectorTrackPoint {
     required this.timestamp,
   });
 
-  factory CollectorTrackPoint.fromMap(
-    String id,
-    Map<String, dynamic> data,
-  ) {
-    final quartier = (data['quartier'] as String?) ?? 'Quartier inconnu';
+  factory CollectorTrackPoint.fromMap(String id, Map<String, dynamic> data) {
+    final quartier = (data['quartier'] as String?) ?? kUnknownQuartierLabel;
     final latitudeRaw = data['latitude'];
     final longitudeRaw = data['longitude'];
     final timestampRaw = data['timestamp'];

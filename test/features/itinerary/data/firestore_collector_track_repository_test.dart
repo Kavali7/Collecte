@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 
+import 'package:collecte_revendeurs/core/location/location_constants.dart';
 import 'package:collecte_revendeurs/features/itinerary/data/cache/collector_track_cache_store.dart';
 import 'package:collecte_revendeurs/features/itinerary/data/firestore_collector_track_repository.dart';
 import 'package:collecte_revendeurs/features/itinerary/domain/collector_track_point.dart';
@@ -11,12 +12,13 @@ void main() {
   group('FirestoreCollectorTrackRepository', () {
     late FakeFirebaseFirestore firestore;
     late FirestoreCollectorTrackRepository repository;
+    late CollectorTrackCacheStore cacheStore;
     late Directory cacheDir;
 
     setUp(() async {
       firestore = FakeFirebaseFirestore();
       cacheDir = await Directory.systemTemp.createTemp('track_repo_test');
-      final cacheStore = CollectorTrackCacheStore(
+      cacheStore = CollectorTrackCacheStore(
         baseDirectory: cacheDir,
         collectorId: 'agent-a',
       );
@@ -33,8 +35,7 @@ void main() {
     });
 
     test('filters by collector and selected day', () async {
-      final collection =
-          firestore.collection('collector_track_points');
+      final collection = firestore.collection('collector_track_points');
       final day = DateTime(2024, 10, 1);
 
       await collection.add({
@@ -85,7 +86,7 @@ void main() {
         collectorId: 'agent-a',
         point: CollectorTrackPoint(
           id: 'local-1',
-          quartier: 'Quartier inconnu',
+          quartier: kUnknownQuartierLabel,
           latitude: 5.1,
           longitude: -4.1,
           timestamp: day.add(const Duration(hours: 8)),
@@ -100,42 +101,79 @@ void main() {
       expect(results.first.id, equals('local-1'));
     });
 
-    test('syncPending uploads cached points and clears pending queue', () async {
-      final day = DateTime(2024, 6, 1, 9);
+    test(
+      'syncPending uploads cached points and clears pending queue',
+      () async {
+        final day = DateTime(2024, 6, 1, 9);
+        await repository.enqueuePoint(
+          collectorId: 'agent-a',
+          point: CollectorTrackPoint(
+            id: 'local-42',
+            quartier: kUnknownQuartierLabel,
+            latitude: 5.2,
+            longitude: -4.2,
+            timestamp: day,
+          ),
+        );
+
+        expect(
+          await repository.pendingCount(collectorId: 'agent-a'),
+          equals(1),
+        );
+
+        final results = await repository.syncPending(collectorId: 'agent-a');
+        expect(results, isNotEmpty);
+        for (final result in results) {
+          await repository.markSynced(collectorId: 'agent-a', result: result);
+        }
+
+        expect(
+          await repository.pendingCount(collectorId: 'agent-a'),
+          equals(0),
+        );
+
+        final docs = await firestore.collection('collector_track_points').get();
+        expect(docs.docs.length, results.length);
+      },
+    );
+
+    test('updateQuartier refreshes cache store and firestore entry', () async {
+      final day = DateTime(2024, 9, 1, 8);
       await repository.enqueuePoint(
         collectorId: 'agent-a',
         point: CollectorTrackPoint(
-          id: 'local-42',
-          quartier: 'Quartier inconnu',
-          latitude: 5.2,
-          longitude: -4.2,
+          id: 'local-temp',
+          quartier: kUnknownQuartierLabel,
+          latitude: 5.21,
+          longitude: -4.01,
           timestamp: day,
         ),
       );
 
-      expect(
-        await repository.pendingCount(collectorId: 'agent-a'),
-        equals(1),
-      );
-
-      final results =
-          await repository.syncPending(collectorId: 'agent-a');
-      expect(results, isNotEmpty);
+      final results = await repository.syncPending(collectorId: 'agent-a');
+      expect(results, hasLength(1));
       for (final result in results) {
-        await repository.markSynced(
-          collectorId: 'agent-a',
-          result: result,
-        );
+        await repository.markSynced(collectorId: 'agent-a', result: result);
       }
+      final remoteId = results.single.remoteId!;
 
-      expect(
-        await repository.pendingCount(collectorId: 'agent-a'),
-        equals(0),
+      await repository.updateQuartier(
+        collectorId: 'agent-a',
+        localId: remoteId,
+        quartier: 'Resolved',
       );
 
-      final docs =
-          await firestore.collection('collector_track_points').get();
-      expect(docs.docs.length, results.length);
+      final remoteSnapshot = await firestore
+          .collection('collector_track_points')
+          .doc(remoteId)
+          .get();
+      expect(remoteSnapshot.get('quartier'), equals('Resolved'));
+
+      final cachedEntries = await cacheStore.loadForDate(
+        day,
+        collectorId: 'agent-a',
+      );
+      expect(cachedEntries.single.point.quartier, equals('Resolved'));
     });
   });
 }

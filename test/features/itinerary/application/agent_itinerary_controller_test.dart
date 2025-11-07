@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:collecte_revendeurs/core/location/location_constants.dart';
+import 'package:collecte_revendeurs/core/location/locationiq_reverse_geocoding.dart';
+import 'package:collecte_revendeurs/core/location/reverse_geocoding_cache.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/agent_itinerary_controller.dart';
 import 'package:collecte_revendeurs/features/itinerary/data/collector_track_repository.dart';
 import 'package:collecte_revendeurs/features/itinerary/data/collector_track_sync_result.dart';
@@ -11,6 +14,7 @@ class _FakeCollectorTrackRepository implements CollectorTrackRepository {
   String? lastCollectorId;
   DateTime? lastDate;
   List<CollectorTrackPoint> enqueued = [];
+  final Map<String, String> updatedQuartiers = {};
 
   @override
   Stream<List<CollectorTrackPoint>> watchTrackPoints({
@@ -48,6 +52,15 @@ class _FakeCollectorTrackRepository implements CollectorTrackRepository {
     return const [];
   }
 
+  @override
+  Future<void> updateQuartier({
+    required String collectorId,
+    required String localId,
+    required String quartier,
+  }) async {
+    updatedQuartiers[localId] = quartier;
+  }
+
   void emit(List<CollectorTrackPoint> points) {
     _controller?.add(points);
   }
@@ -64,12 +77,15 @@ class _FakeCollectorTrackRepository implements CollectorTrackRepository {
 void main() {
   group('AgentItineraryController', () {
     late _FakeCollectorTrackRepository repository;
+    late _FakeReverseGeocodingCache reverseGeocodingCache;
     late AgentItineraryController controller;
 
     setUp(() {
       repository = _FakeCollectorTrackRepository();
       controller = AgentItineraryController(
         repository: repository,
+        reverseGeocodingCache: reverseGeocodingCache =
+            _FakeReverseGeocodingCache(),
         collectorId: 'agent-a',
       );
     });
@@ -103,10 +119,7 @@ void main() {
       await Future.microtask(() {});
 
       final state = controller.state;
-      expect(
-        repository.lastDate,
-        equals(DateTime(2024, 5, 12)),
-      );
+      expect(repository.lastDate, equals(DateTime(2024, 5, 12)));
       expect(state.points.first.id, 'first');
       expect(state.geoPoints.length, 2);
       expect(state.bounds, isNotNull);
@@ -140,5 +153,76 @@ void main() {
       expect(controller.state.errorMessage, isNotNull);
       expect(controller.state.isLoading, isFalse);
     });
+
+    test('resolves missing quartiers and updates repository cache', () async {
+      reverseGeocodingCache.setResponse(
+        latitude: 5.34,
+        longitude: -4.01,
+        address: const ReverseGeocodingAddress(
+          formatted: 'Abidjan / Arr: Plateau / Plateau',
+          city: 'Abidjan',
+          arrondissement: 'Plateau',
+          quartier: 'Plateau',
+        ),
+      );
+      final date = DateTime(2024, 8, 15, 9);
+      await controller.loadForDate(date);
+
+      repository.emit([
+        CollectorTrackPoint(
+          id: 'unknown',
+          quartier: kUnknownQuartierLabel,
+          latitude: 5.34,
+          longitude: -4.01,
+          timestamp: date,
+        ),
+      ]);
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.state.points.single.quartier, equals('Plateau'));
+      expect(repository.updatedQuartiers['unknown'], equals('Plateau'));
+    });
   });
+}
+
+class _FakeReverseGeocodingCache implements ReverseGeocodingCache {
+  final Map<String, ReverseGeocodingAddress?> _responses = {};
+
+  void setResponse({
+    required double latitude,
+    required double longitude,
+    ReverseGeocodingAddress? address,
+  }) {
+    _responses[_key(latitude, longitude)] = address;
+  }
+
+  @override
+  void clear() {
+    _responses.clear();
+  }
+
+  @override
+  Future<ReverseGeocodingAddress?> resolve({
+    required double latitude,
+    required double longitude,
+  }) async {
+    return _responses[_key(latitude, longitude)];
+  }
+
+  @override
+  Future<List<ReverseGeocodingAddress?>> resolveBatch(
+    List<ReverseGeocodingCoordinate> coordinates,
+  ) async {
+    return coordinates
+        .map(
+          (coordinate) =>
+              _responses[_key(coordinate.latitude, coordinate.longitude)],
+        )
+        .toList(growable: false);
+  }
+
+  String _key(double latitude, double longitude) {
+    return '${latitude.toStringAsFixed(4)}/${longitude.toStringAsFixed(4)}';
+  }
 }

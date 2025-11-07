@@ -102,10 +102,10 @@ class ItineraryJournalTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
+                  _HeaderCell('N°', flex: 1, style: headerStyle),
                   _HeaderCell('Quartier', flex: 3, style: headerStyle),
-                  _HeaderCell('Latitude', flex: 2, style: headerStyle),
-                  _HeaderCell('Longitude', flex: 2, style: headerStyle),
-                  _HeaderCell('Heure d\'arrivee', flex: 2, style: headerStyle),
+                  _HeaderCell('Lat/Long', flex: 3, style: headerStyle),
+                  _HeaderCell('Heure', flex: 2, style: headerStyle),
                   _HeaderCell('Duree', flex: 2, style: headerStyle),
                 ],
               ),
@@ -129,6 +129,9 @@ class ItineraryJournalTable extends StatelessWidget {
                         final durationTextStyle = entry.isAnomalous
                             ? anomalyStyle
                             : theme.textTheme.bodyMedium;
+                        final latLongLabel =
+                            '${formatCoordinate(entry.point.latitude)}\n'
+                            '${formatCoordinate(entry.point.longitude)}';
                         return Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -136,6 +139,16 @@ class ItineraryJournalTable extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
+                              Expanded(
+                                flex: 1,
+                                child: Text(
+                                  '${index + 1}',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
                               Expanded(
                                 flex: 3,
                                 child: Text(
@@ -145,16 +158,9 @@ class ItineraryJournalTable extends StatelessWidget {
                                 ),
                               ),
                               Expanded(
-                                flex: 2,
+                                flex: 3,
                                 child: Text(
-                                  formatCoordinate(entry.point.latitude),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  formatCoordinate(entry.point.longitude),
+                                  latLongLabel,
                                   textAlign: TextAlign.center,
                                 ),
                               ),

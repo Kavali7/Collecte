@@ -22,4 +22,10 @@ abstract class CollectorTrackRepository {
   });
 
   Future<int> pendingCount({required String collectorId});
+
+  Future<void> updateQuartier({
+    required String collectorId,
+    required String localId,
+    required String quartier,
+  });
 }

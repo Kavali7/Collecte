@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pointycastle/export.dart';
 
 import '../../../auth/controllers/auth_controller.dart';
+import '../../../../core/location/location_constants.dart';
 import '../../domain/collector_track_point.dart';
 
 enum TrackSyncStatus { pending, synced, error }
@@ -46,7 +47,7 @@ class CachedCollectorTrackEntry {
 
     final point = CollectorTrackPoint(
       id: pointId ?? json['localId'] as String? ?? '',
-      quartier: json['quartier'] as String? ?? 'Quartier inconnu',
+      quartier: json['quartier'] as String? ?? kUnknownQuartierLabel,
       latitude: latitude,
       longitude: longitude,
       timestamp: timestamp,
@@ -152,9 +153,7 @@ class CollectorTrackCacheStore {
     final targetCollector = _resolveCollectorId(
       collectorId ?? entry.collectorId,
     );
-    final normalizedEntry = entry.copyWith(
-      collectorId: targetCollector,
-    );
+    final normalizedEntry = entry.copyWith(collectorId: targetCollector);
     final entries = await _loadEntries(targetCollector);
     final index = entries.indexWhere(
       (item) => item.localId == normalizedEntry.localId,
@@ -174,10 +173,9 @@ class CollectorTrackCacheStore {
     final targetCollector = _resolveCollectorId(collectorId);
     final entries = await _loadEntries(targetCollector);
     final normalizedDay = _normalizeDay(day);
-    final filtered = entries
-        .where((entry) => entry.occursOnDay(normalizedDay))
-        .toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final filtered =
+        entries.where((entry) => entry.occursOnDay(normalizedDay)).toList()
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return filtered;
   }
 
@@ -186,9 +184,7 @@ class CollectorTrackCacheStore {
   }) async {
     final targetCollector = _resolveCollectorId(collectorId);
     final entries = await _loadEntries(targetCollector);
-    return entries
-        .where((entry) => entry.isPending)
-        .toList()
+    return entries.where((entry) => entry.isPending).toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
@@ -262,6 +258,25 @@ class CollectorTrackCacheStore {
     await _saveEntries(targetCollector, entries);
   }
 
+  Future<CachedCollectorTrackEntry?> updateQuartier({
+    required String localId,
+    required String quartier,
+    String? collectorId,
+  }) async {
+    final targetCollector = _resolveCollectorId(collectorId);
+    final entries = await _loadEntries(targetCollector);
+    final index = entries.indexWhere(
+      (entry) => entry.localId == localId || entry.point.id == localId,
+    );
+    if (index == -1) return null;
+    final updatedEntry = entries[index].copyWith(
+      point: entries[index].point.copyWith(quartier: quartier),
+    );
+    entries[index] = updatedEntry;
+    await _saveEntries(targetCollector, entries);
+    return updatedEntry;
+  }
+
   Future<List<CachedCollectorTrackEntry>> _loadEntries(
     String collectorId,
   ) async {
@@ -306,7 +321,9 @@ class CollectorTrackCacheStore {
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }
-    final suffix = collectorId.isEmpty ? _fileName : '${collectorId}_$_fileName';
+    final suffix = collectorId.isEmpty
+        ? _fileName
+        : '${collectorId}_$_fileName';
     return File(p.join(directory.path, suffix));
   }
 
@@ -390,11 +407,13 @@ class _CacheCipher {
   }
 }
 
-final collectorTrackCacheStoreProvider =
-    Provider<CollectorTrackCacheStore>((ref) {
-      final authState = ref.watch(authControllerProvider);
-      final firebaseAuth = ref.watch(firebaseAuthProvider);
-      final collectorId =
-          authState.isAuthenticated ? firebaseAuth.currentUser?.uid : null;
-      return CollectorTrackCacheStore(collectorId: collectorId);
-    });
+final collectorTrackCacheStoreProvider = Provider<CollectorTrackCacheStore>((
+  ref,
+) {
+  final authState = ref.watch(authControllerProvider);
+  final firebaseAuth = ref.watch(firebaseAuthProvider);
+  final collectorId = authState.isAuthenticated
+      ? firebaseAuth.currentUser?.uid
+      : null;
+  return CollectorTrackCacheStore(collectorId: collectorId);
+});

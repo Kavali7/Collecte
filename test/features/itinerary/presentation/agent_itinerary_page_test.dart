@@ -1,4 +1,5 @@
 import 'package:collecte_revendeurs/core/location/location_service.dart';
+import 'package:collecte_revendeurs/core/location/reverse_geocoding_cache.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/agent_itinerary_controller.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/agent_itinerary_state.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/collector_track_recorder.dart';
@@ -16,6 +17,7 @@ class _StubAgentItineraryController extends AgentItineraryController {
   _StubAgentItineraryController(AgentItineraryState stubState)
     : super(
         repository: const _NoopCollectorTrackRepository(),
+        reverseGeocodingCache: ReverseGeocodingCache(),
         collectorId: 'stub-agent',
       ) {
     state = stubState;
@@ -63,6 +65,13 @@ class _NoopCollectorTrackRepository implements CollectorTrackRepository {
   }) {
     return const Stream.empty();
   }
+
+  @override
+  Future<void> updateQuartier({
+    required String collectorId,
+    required String localId,
+    required String quartier,
+  }) async {}
 }
 
 class _NoopLocationService implements LocationService {
@@ -84,6 +93,7 @@ class _StubCollectorTrackRecorder extends CollectorTrackRecorder {
     : super(
         repository: const _NoopCollectorTrackRepository(),
         locationService: const _NoopLocationService(),
+        reverseGeocodingCache: ReverseGeocodingCache(),
         collectorId: '',
       ) {
     state = stubState;
@@ -119,7 +129,8 @@ void main() {
 
     expect(find.byType(FlutterMap), findsOneWidget);
     expect(find.text('Quartier'), findsOneWidget);
-    expect(find.text('Heure d\'arrivee'), findsOneWidget);
+    expect(find.text('Lat/Long'), findsOneWidget);
+    expect(find.text('Heure'), findsOneWidget);
     expect(find.text('Aucun arret confirme pour cette date.'), findsOneWidget);
   });
 

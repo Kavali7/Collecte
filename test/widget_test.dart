@@ -39,9 +39,7 @@ void main() {
           permissionsControllerProvider.overrideWith(
             (ref) => _AlwaysGrantedPermissionsController(),
           ),
-          firebaseAuthProvider.overrideWithValue(
-            mockAuth,
-          ),
+          firebaseAuthProvider.overrideWithValue(mockAuth),
           locationServiceProvider.overrideWithValue(fakeLocationService),
           collectorTrackRepositoryProvider.overrideWith(
             (ref) => const _NoopCollectorTrackRepository(),
@@ -106,4 +104,11 @@ class _NoopCollectorTrackRepository implements CollectorTrackRepository {
   }) {
     return const Stream.empty();
   }
+
+  @override
+  Future<void> updateQuartier({
+    required String collectorId,
+    required String localId,
+    required String quartier,
+  }) async {}
 }
