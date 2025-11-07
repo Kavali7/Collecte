@@ -67,12 +67,6 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
         ),
         title: const Text('Carte des collectes'),
         actions: [
-          IconButton(
-            tooltip: 'Itineraire du collecteur',
-            icon: const Icon(Icons.route_outlined),
-            onPressed: () =>
-                context.pushNamed(AppRoute.agentItinerary.name),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: _StatusChip(isOffline: state.isOffline),
@@ -279,6 +273,7 @@ class _StatusChip extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isOffline ? Icons.cloud_off : Icons.cloud_done,
@@ -288,17 +283,15 @@ class _StatusChip extends StatelessWidget {
                   : colorScheme.onSecondaryContainer,
             ),
             const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                isOffline ? 'Mode hors ligne' : 'Connecte',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: isOffline
-                      ? colorScheme.onErrorContainer
-                      : colorScheme.onSecondaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
+            Text(
+              isOffline ? 'Mode hors ligne' : 'Connecte',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: isOffline
+                    ? colorScheme.onErrorContainer
+                    : colorScheme.onSecondaryContainer,
+                fontWeight: FontWeight.w600,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

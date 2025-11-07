@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/theme/app_theme.dart';
+import 'features/itinerary/application/collector_track_recorder.dart';
 import 'routing/app_router.dart';
 
 class CollecteApp extends ConsumerWidget {
@@ -11,6 +12,7 @@ class CollecteApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    ref.watch(collectorTrackRecorderProvider);
 
     return MaterialApp.router(
       title: 'Collecte Revendeurs',

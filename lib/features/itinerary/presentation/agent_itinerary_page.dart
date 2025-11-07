@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../routing/app_route.dart';
+import '../../../routing/app_router.dart';
 import '../application/agent_itinerary_controller.dart';
 import '../application/agent_itinerary_state.dart';
+import '../application/collector_track_recorder.dart';
 import '../domain/collector_track_point.dart';
 
 const _tileStoreName = 'collecteCache';
@@ -23,13 +25,46 @@ class AgentItineraryPage extends ConsumerStatefulWidget {
 }
 
 class _AgentItineraryPageState
-    extends ConsumerState<AgentItineraryPage> {
+    extends ConsumerState<AgentItineraryPage> with RouteAware {
   late final MapController _mapController;
+  RouteObserver<ModalRoute<void>>? _routeObserver;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final observer = ref.read(routeObserverProvider);
+    final route = ModalRoute.of(context);
+    if (route is PageRoute && _routeObserver != observer) {
+      _routeObserver?.unsubscribe(this);
+      _routeObserver = observer;
+      observer.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    _routeObserver?.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPush() {
+    _triggerSync();
+  }
+
+  @override
+  void didPopNext() {
+    _triggerSync();
+  }
+
+  void _triggerSync() {
+    ref.read(collectorTrackRecorderProvider.notifier).syncNow();
   }
 
   void _showSnack(String message, {required bool isWarning}) {
@@ -57,6 +92,7 @@ class _AgentItineraryPageState
   Widget build(BuildContext context) {
     final state = ref.watch(agentItineraryControllerProvider);
     final controller = ref.read(agentItineraryControllerProvider.notifier);
+    final recorderState = ref.watch(collectorTrackRecorderProvider);
     ref.listen<AgentItineraryState>(
       agentItineraryControllerProvider,
       (previous, next) {
@@ -102,9 +138,10 @@ class _AgentItineraryPageState
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _ItineraryControls(
                 selectedDate: state.selectedDate,
@@ -122,7 +159,13 @@ class _AgentItineraryPageState
                   child: _InfoBanner(message: state.locationErrorMessage!),
                 ),
               const SizedBox(height: 16),
-              Expanded(child: _TrackTable(points: state.points)),
+              _TrackSummaryCard(
+                pointsCount: state.points.length,
+                pendingCount: recorderState.pendingPoints,
+                hasPendingSync: recorderState.hasPendingSync,
+                hasError: recorderState.hasError || state.errorMessage != null,
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -392,135 +435,122 @@ class _InfoBanner extends StatelessWidget {
   }
 }
 
-class _TrackTable extends StatelessWidget {
-  const _TrackTable({required this.points});
+class _TrackSummaryCard extends StatelessWidget {
+  const _TrackSummaryCard({
+    required this.pointsCount,
+    required this.pendingCount,
+    required this.hasPendingSync,
+    required this.hasError,
+  });
 
-  final List<CollectorTrackPoint> points;
+  final int pointsCount;
+  final int pendingCount;
+  final bool hasPendingSync;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final messages = <_SummaryMessage>[];
+    if (pointsCount == 0) {
+      messages.add(
+        _SummaryMessage(
+          label: 'Aucun trajet',
+          color: const Color(0xFF6B7280),
+          icon: Icons.route,
+        ),
+      );
+    }
+    if (hasPendingSync) {
+      final label = pendingCount > 0
+          ? 'Synchronisation en attente ($pendingCount)'
+          : 'Synchronisation en attente';
+      messages.add(
+        _SummaryMessage(
+          label: label,
+          color: const Color(0xFFF97316),
+          icon: Icons.sync_problem,
+        ),
+      );
+    }
+    if (hasError) {
+      messages.add(
+        _SummaryMessage(
+          label: 'Erreur reseau/permissions',
+          color: theme.colorScheme.error,
+          icon: Icons.warning_amber_rounded,
+        ),
+      );
+    }
+
+    final summaryLabel = '$pointsCount arrets enregistres';
+
     return Card(
-      clipBehavior: Clip.hardEdge,
-      child: Column(
-        children: [
-          Container(
-            color: theme.colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: const [
-                _HeaderCell('Quartier', flex: 4),
-                _HeaderCell('Latitude', flex: 3),
-                _HeaderCell('Longitude', flex: 3),
-                _HeaderCell('Heure', flex: 2),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              summaryLabel,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: points.isEmpty
-                ? const _EmptyTableMessage()
-                : ListView.separated(
-                    itemCount: points.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final point = points[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+            const SizedBox(height: 12),
+            if (messages.isEmpty)
+              Row(
+                children: [
+                  Icon(Icons.check_circle_outline,
+                      color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Trajet synchronise.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                children: messages
+                    .map(
+                      (message) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
                           children: [
-                            _ValueCell(point.quartier, flex: 4),
-                            _ValueCell(
-                              point.latitude.toStringAsFixed(5),
-                              flex: 3,
-                            ),
-                            _ValueCell(
-                              point.longitude.toStringAsFixed(5),
-                              flex: 3,
-                            ),
-                            _ValueCell(
-                              _formatHour(point.timestamp),
-                              flex: 2,
-                              align: TextAlign.right,
+                            Icon(message.icon, color: message.color, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                message.label,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: message.color,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatHour(DateTime dateTime) {
-    final hours = dateTime.hour.toString().padLeft(2, '0');
-    final minutes = dateTime.minute.toString().padLeft(2, '0');
-    return '$hours:$minutes';
-  }
-}
-
-class _HeaderCell extends StatelessWidget {
-  const _HeaderCell(this.label, {this.flex = 1});
-
-  final String label;
-  final int flex;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        );
-    return Expanded(
-      flex: flex,
-      child: Text(label, style: style),
-    );
-  }
-}
-
-class _ValueCell extends StatelessWidget {
-  const _ValueCell(
-    this.value, {
-    this.flex = 1,
-    this.align = TextAlign.left,
-  });
-
-  final String value;
-  final int flex;
-  final TextAlign align;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodyMedium;
-    return Expanded(
-      flex: flex,
-      child: Text(
-        value,
-        textAlign: align,
-        style: style,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
-class _EmptyTableMessage extends StatelessWidget {
-  const _EmptyTableMessage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          'Aucune donnee a afficher pour cette date.',
-          style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    )
+                    .toList(),
+              ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _SummaryMessage {
+  const _SummaryMessage({
+    required this.label,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final Color color;
+  final IconData icon;
 }

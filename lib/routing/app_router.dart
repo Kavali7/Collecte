@@ -13,8 +13,14 @@ import '../features/boutiques/presentation/pages/boutique_map_page.dart';
 import '../features/itinerary/presentation/agent_itinerary_page.dart';
 import 'app_route.dart';
 
+final routeObserverProvider =
+    Provider<RouteObserver<ModalRoute<void>>>((ref) {
+      return RouteObserver<ModalRoute<void>>();
+    });
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
+  final routeObserver = ref.watch(routeObserverProvider);
 
   return GoRouter(
     initialLocation: '/auth',
@@ -97,6 +103,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       return null;
     },
+    observers: [routeObserver],
     refreshListenable: GoRouterRefreshStream(
       ref.watch(authControllerProvider.notifier).stream,
     ),

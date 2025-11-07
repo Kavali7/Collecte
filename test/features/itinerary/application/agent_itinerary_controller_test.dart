@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:collecte_revendeurs/features/itinerary/application/agent_itinerary_controller.dart';
 import 'package:collecte_revendeurs/features/itinerary/data/collector_track_repository.dart';
+import 'package:collecte_revendeurs/features/itinerary/data/collector_track_sync_result.dart';
 import 'package:collecte_revendeurs/features/itinerary/domain/collector_track_point.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,6 +10,7 @@ class _FakeCollectorTrackRepository implements CollectorTrackRepository {
   StreamController<List<CollectorTrackPoint>>? _controller;
   String? lastCollectorId;
   DateTime? lastDate;
+  List<CollectorTrackPoint> enqueued = [];
 
   @override
   Stream<List<CollectorTrackPoint>> watchTrackPoints({
@@ -20,6 +22,30 @@ class _FakeCollectorTrackRepository implements CollectorTrackRepository {
     lastCollectorId = collectorId;
     lastDate = date;
     return _controller!.stream;
+  }
+
+  @override
+  Future<void> enqueuePoint({
+    required String collectorId,
+    required CollectorTrackPoint point,
+  }) async {
+    enqueued.add(point);
+  }
+
+  @override
+  Future<void> markSynced({
+    required String collectorId,
+    required CollectorTrackSyncResult result,
+  }) async {}
+
+  @override
+  Future<int> pendingCount({required String collectorId}) async => 0;
+
+  @override
+  Future<List<CollectorTrackSyncResult>> syncPending({
+    required String collectorId,
+  }) async {
+    return const [];
   }
 
   void emit(List<CollectorTrackPoint> points) {
