@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:collecte_revendeurs/core/location/location_constants.dart';
-import 'package:collecte_revendeurs/core/location/locationiq_reverse_geocoding.dart';
+import 'package:collecte_revendeurs/core/location/quartier_resolver.dart';
 import 'package:collecte_revendeurs/core/location/reverse_geocoding_cache.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/agent_itinerary_controller.dart';
 import 'package:collecte_revendeurs/features/itinerary/data/collector_track_repository.dart';
@@ -77,15 +77,14 @@ class _FakeCollectorTrackRepository implements CollectorTrackRepository {
 void main() {
   group('AgentItineraryController', () {
     late _FakeCollectorTrackRepository repository;
-    late _FakeReverseGeocodingCache reverseGeocodingCache;
+    late _MapQuartierResolverFake quartierResolver;
     late AgentItineraryController controller;
 
     setUp(() {
       repository = _FakeCollectorTrackRepository();
       controller = AgentItineraryController(
         repository: repository,
-        reverseGeocodingCache: reverseGeocodingCache =
-            _FakeReverseGeocodingCache(),
+        quartierResolver: quartierResolver = _MapQuartierResolverFake(),
         collectorId: 'agent-a',
       );
     });
@@ -155,15 +154,10 @@ void main() {
     });
 
     test('resolves missing quartiers and updates repository cache', () async {
-      reverseGeocodingCache.setResponse(
+      quartierResolver.setResponse(
         latitude: 5.34,
         longitude: -4.01,
-        address: const ReverseGeocodingAddress(
-          formatted: 'Abidjan / Arr: Plateau / Plateau',
-          city: 'Abidjan',
-          arrondissement: 'Plateau',
-          quartier: 'Plateau',
-        ),
+        resolution: QuartierResolution.resolved('Plateau'),
       );
       final date = DateTime(2024, 8, 15, 9);
       await controller.loadForDate(date);
@@ -186,38 +180,35 @@ void main() {
   });
 }
 
-class _FakeReverseGeocodingCache implements ReverseGeocodingCache {
-  final Map<String, ReverseGeocodingAddress?> _responses = {};
+class _MapQuartierResolverFake implements QuartierResolver {
+  final Map<String, QuartierResolution> _responses = {};
+  QuartierResolution defaultResult = const QuartierResolution.unknown();
 
   void setResponse({
     required double latitude,
     required double longitude,
-    ReverseGeocodingAddress? address,
+    required QuartierResolution resolution,
   }) {
-    _responses[_key(latitude, longitude)] = address;
+    _responses[_key(latitude, longitude)] = resolution;
   }
 
   @override
-  void clear() {
-    _responses.clear();
-  }
-
-  @override
-  Future<ReverseGeocodingAddress?> resolve({
+  Future<QuartierResolution> resolve({
     required double latitude,
     required double longitude,
   }) async {
-    return _responses[_key(latitude, longitude)];
+    return _responses[_key(latitude, longitude)] ?? defaultResult;
   }
 
   @override
-  Future<List<ReverseGeocodingAddress?>> resolveBatch(
+  Future<List<QuartierResolution>> resolveBatch(
     List<ReverseGeocodingCoordinate> coordinates,
   ) async {
     return coordinates
         .map(
           (coordinate) =>
-              _responses[_key(coordinate.latitude, coordinate.longitude)],
+              _responses[_key(coordinate.latitude, coordinate.longitude)] ??
+              defaultResult,
         )
         .toList(growable: false);
   }

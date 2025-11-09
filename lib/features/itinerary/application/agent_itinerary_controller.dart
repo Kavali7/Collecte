@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/location/location_constants.dart';
-import '../../../core/location/locationiq_reverse_geocoding.dart';
-import '../../../core/location/reverse_geocoding_cache.dart';
 import '../../../core/location/location_providers.dart';
+import '../../../core/location/quartier_resolver.dart';
+import '../../../core/location/reverse_geocoding_cache.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../data/collector_track_repository.dart';
 import '../data/firestore_collector_track_repository.dart';
@@ -17,15 +17,15 @@ import 'agent_itinerary_state.dart';
 class AgentItineraryController extends StateNotifier<AgentItineraryState> {
   AgentItineraryController({
     required CollectorTrackRepository repository,
-    required ReverseGeocodingCache reverseGeocodingCache,
+    required QuartierResolver quartierResolver,
     required String? collectorId,
   }) : _repository = repository,
-       _reverseGeocodingCache = reverseGeocodingCache,
+       _quartierResolver = quartierResolver,
        _collectorId = collectorId,
        super(AgentItineraryState.initial());
 
   final CollectorTrackRepository _repository;
-  final ReverseGeocodingCache _reverseGeocodingCache;
+  final QuartierResolver _quartierResolver;
   final String? _collectorId;
 
   StreamSubscription<List<CollectorTrackPoint>>? _tracksSubscription;
@@ -159,21 +159,23 @@ class AgentItineraryController extends StateNotifier<AgentItineraryState> {
     required List<CollectorTrackPoint> pendingPoints,
     required List<ReverseGeocodingCoordinate> coordinates,
   }) async {
-    List<ReverseGeocodingAddress?> addresses;
+    List<QuartierResolution> resolutions;
     try {
-      addresses = await _reverseGeocodingCache.resolveBatch(coordinates);
+      resolutions = await _quartierResolver.resolveBatch(coordinates);
     } catch (_) {
       return;
     }
-    if (addresses.length != pendingPoints.length) return;
+    if (resolutions.length != pendingPoints.length) return;
     final currentPoints = [...state.points];
     var hasUpdates = false;
     final updateFutures = <Future<void>>[];
     for (var i = 0; i < pendingPoints.length; i++) {
-      final address = addresses[i];
-      if (address == null) continue;
-      final normalized = _normalizeQuartier(address);
-      if (normalized == null) continue;
+      final resolution = resolutions[i];
+      if (!resolution.isResolved) continue;
+      final normalized = resolution.label.trim();
+      if (normalized.isEmpty || normalized == kUnknownQuartierLabel) {
+        continue;
+      }
       final targetId = pendingPoints[i].id;
       final index = currentPoints.indexWhere((point) => point.id == targetId);
       if (index == -1) continue;
@@ -205,14 +207,6 @@ class AgentItineraryController extends StateNotifier<AgentItineraryState> {
     return label.isEmpty || label == kUnknownQuartierLabel;
   }
 
-  String? _normalizeQuartier(ReverseGeocodingAddress address) {
-    final label = resolveQuartierLabelOrFallback(address).trim();
-    if (label.isEmpty || label == kUnknownQuartierLabel) {
-      return null;
-    }
-    return label;
-  }
-
   @override
   void dispose() {
     _tracksSubscription?.cancel();
@@ -226,12 +220,12 @@ final agentItineraryControllerProvider =
       AgentItineraryState
     >((ref) {
       final repository = ref.watch(collectorTrackRepositoryProvider);
-      final reverseGeocodingCache = ref.watch(reverseGeocodingCacheProvider);
+      final quartierResolver = ref.watch(quartierResolverProvider);
       final authState = ref.watch(authControllerProvider);
       final collectorId = authState.isAuthenticated ? authState.userId : null;
       final controller = AgentItineraryController(
         repository: repository,
-        reverseGeocodingCache: reverseGeocodingCache,
+        quartierResolver: quartierResolver,
         collectorId: collectorId,
       );
       controller.initialize();

@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/location/location_constants.dart';
-import '../../../core/location/locationiq_reverse_geocoding.dart';
 import '../../../core/location/location_providers.dart';
 import '../../../core/location/location_service.dart';
+import '../../../core/location/quartier_resolver.dart';
 import '../../../core/location/reverse_geocoding_cache.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../data/collector_track_repository.dart';
@@ -21,7 +21,7 @@ class CollectorTrackRecorder
   CollectorTrackRecorder({
     required CollectorTrackRepository repository,
     required LocationService locationService,
-    required ReverseGeocodingCache reverseGeocodingCache,
+    required QuartierResolver quartierResolver,
     required String? collectorId,
     Duration syncInterval = const Duration(minutes: 5),
     DateTime Function()? clock,
@@ -31,7 +31,7 @@ class CollectorTrackRecorder
     int reverseGeocodeBatchSize = 4,
   }) : _repository = repository,
        _locationService = locationService,
-       _reverseGeocodingCache = reverseGeocodingCache,
+       _quartierResolver = quartierResolver,
        _collectorId = collectorId,
        _syncInterval = syncInterval,
        _clock = clock ?? DateTime.now,
@@ -46,7 +46,7 @@ class CollectorTrackRecorder
 
   final CollectorTrackRepository _repository;
   final LocationService _locationService;
-  final ReverseGeocodingCache _reverseGeocodingCache;
+  final QuartierResolver _quartierResolver;
   final String? _collectorId;
   final Duration _syncInterval;
   final DateTime Function() _clock;
@@ -166,26 +166,18 @@ class CollectorTrackRecorder
     }
   }
 
-  Future<_QuartierResolution> _resolveQuartier({
+  Future<QuartierResolution> _resolveQuartier({
     required double latitude,
     required double longitude,
   }) async {
     try {
-      final address = await _reverseGeocodingCache.resolve(
+      return await _quartierResolver.resolve(
         latitude: latitude,
         longitude: longitude,
       );
-      if (address != null) {
-        final label = resolveQuartierLabelOrFallback(address).trim();
-        final normalized = label.isEmpty ? kUnknownQuartierLabel : label;
-        final resolved = normalized != kUnknownQuartierLabel;
-        return _QuartierResolution(label: normalized, isResolved: resolved);
-      }
-    } catch (_) {}
-    return const _QuartierResolution(
-      label: kUnknownQuartierLabel,
-      isResolved: false,
-    );
+    } catch (_) {
+      return const QuartierResolution.unknown();
+    }
   }
 
   void _scheduleQuartierRetry({
@@ -228,19 +220,21 @@ class CollectorTrackRecorder
             ),
           )
           .toList(growable: false);
-      List<ReverseGeocodingAddress?> addresses;
+      List<QuartierResolution> resolutions;
       try {
-        addresses = await _reverseGeocodingCache.resolveBatch(coordinates);
+        resolutions = await _quartierResolver.resolveBatch(coordinates);
       } catch (_) {
-        addresses = List<ReverseGeocodingAddress?>.filled(
+        resolutions = List<QuartierResolution>.filled(
           batch.length,
-          null,
+          const QuartierResolution.unknown(),
           growable: false,
         );
       }
       for (var i = 0; i < batch.length; i++) {
         final job = batch[i];
-        final address = addresses[i];
+        final resolution = i < resolutions.length
+            ? resolutions[i]
+            : const QuartierResolution.unknown();
         if (_stopRetryWorker || !mounted) {
           _quartierRetryIds.remove(job.localId);
           continue;
@@ -249,7 +243,7 @@ class CollectorTrackRecorder
           _quartierRetryIds.remove(job.localId);
           continue;
         }
-        final resolved = await _attemptQuartierUpdate(job, address);
+        final resolved = await _attemptQuartierUpdate(job, resolution);
         if (!resolved) {
           final nextAttempts = job.attempts + 1;
           if (nextAttempts < _reverseGeocodeMaxAttempts) {
@@ -265,21 +259,20 @@ class CollectorTrackRecorder
 
   Future<bool> _attemptQuartierUpdate(
     _PendingQuartierRetry job,
-    ReverseGeocodingAddress? address,
+    QuartierResolution resolution,
   ) async {
     try {
-      if (address == null) {
+      if (!resolution.isResolved) {
         return false;
       }
-      final label = resolveQuartierLabelOrFallback(address).trim();
-      final normalized = label.isEmpty ? kUnknownQuartierLabel : label;
-      if (normalized == kUnknownQuartierLabel) {
+      final label = resolution.label.trim();
+      if (label.isEmpty || label == kUnknownQuartierLabel) {
         return false;
       }
       await _repository.updateQuartier(
         collectorId: job.collectorId,
         localId: job.localId,
-        quartier: normalized,
+        quartier: label,
       );
       _quartierRetryIds.remove(job.localId);
       return true;
@@ -351,7 +344,7 @@ final collectorTrackRecorderProvider =
     ) {
       final repository = ref.watch(collectorTrackRepositoryProvider);
       final locationService = ref.watch(locationServiceProvider);
-      final reverseGeocodingCache = ref.watch(reverseGeocodingCacheProvider);
+      final quartierResolver = ref.watch(quartierResolverProvider);
       final authState = ref.watch(authControllerProvider);
       final firebaseAuth = ref.watch(firebaseAuthProvider);
       final collectorId = authState.isAuthenticated
@@ -360,17 +353,10 @@ final collectorTrackRecorderProvider =
       return CollectorTrackRecorder(
         repository: repository,
         locationService: locationService,
-        reverseGeocodingCache: reverseGeocodingCache,
+        quartierResolver: quartierResolver,
         collectorId: collectorId,
       );
     });
-
-class _QuartierResolution {
-  const _QuartierResolution({required this.label, required this.isResolved});
-
-  final String label;
-  final bool isResolved;
-}
 
 class _PendingQuartierRetry {
   const _PendingQuartierRetry({

@@ -1,6 +1,8 @@
+import 'dart:collection';
+
 import 'package:collecte_revendeurs/core/location/location_constants.dart';
 import 'package:collecte_revendeurs/core/location/location_service.dart';
-import 'package:collecte_revendeurs/core/location/locationiq_reverse_geocoding.dart';
+import 'package:collecte_revendeurs/core/location/quartier_resolver.dart';
 import 'package:collecte_revendeurs/core/location/reverse_geocoding_cache.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/collector_track_recorder.dart';
 import 'package:collecte_revendeurs/features/itinerary/data/collector_track_repository.dart';
@@ -78,27 +80,61 @@ class _RecorderRepositoryFake implements CollectorTrackRepository {
   }
 }
 
-class _StubReverseGeocodingService extends LocationIqReverseGeocodingService {
-  _StubReverseGeocodingService(this._result) : super();
+class _SequencedQuartierResolverFake implements QuartierResolver {
+  final Queue<QuartierResolution> _singleResponses = Queue();
+  final Queue<List<QuartierResolution>> _batchResponses = Queue();
 
-  ReverseGeocodingResult _result;
-  int invocationCount = 0;
+  QuartierResolution defaultSingle = const QuartierResolution.unknown();
+  QuartierResolution defaultBatch = const QuartierResolution.unknown();
+
+  int resolveInvocationCount = 0;
+  int resolveBatchInvocationCount = 0;
   double? lastLatitude;
   double? lastLongitude;
 
-  void setResult(ReverseGeocodingResult result) {
-    _result = result;
+  void enqueueSingle(QuartierResolution resolution) {
+    _singleResponses.add(resolution);
+  }
+
+  void enqueueBatch(List<QuartierResolution> resolutions) {
+    _batchResponses.add(resolutions);
   }
 
   @override
-  Future<ReverseGeocodingResult> resolve({
+  Future<QuartierResolution> resolve({
     required double latitude,
     required double longitude,
   }) async {
-    invocationCount += 1;
+    resolveInvocationCount += 1;
     lastLatitude = latitude;
     lastLongitude = longitude;
-    return _result;
+    if (_singleResponses.isNotEmpty) {
+      return _singleResponses.removeFirst();
+    }
+    return defaultSingle;
+  }
+
+  @override
+  Future<List<QuartierResolution>> resolveBatch(
+    List<ReverseGeocodingCoordinate> coordinates,
+  ) async {
+    resolveBatchInvocationCount += 1;
+    if (_batchResponses.isNotEmpty) {
+      final next = _batchResponses.removeFirst();
+      if (next.length == coordinates.length) {
+        return next;
+      }
+      final adjusted = List<QuartierResolution>.from(next);
+      while (adjusted.length < coordinates.length) {
+        adjusted.add(defaultBatch);
+      }
+      return adjusted.take(coordinates.length).toList(growable: false);
+    }
+    return List<QuartierResolution>.filled(
+      coordinates.length,
+      defaultBatch,
+      growable: false,
+    );
   }
 }
 
@@ -111,14 +147,13 @@ void main() {
     late _RecorderRepositoryFake repository;
     late FakeLocationService locationService;
     late DateTime currentTime;
-    late _StubReverseGeocodingService reverseGeoService;
-    late ReverseGeocodingCache reverseGeocodingCache;
+    late _SequencedQuartierResolverFake quartierResolver;
 
     CollectorTrackRecorder buildRecorder() {
       return CollectorTrackRecorder(
         repository: repository,
         locationService: locationService,
-        reverseGeocodingCache: reverseGeocodingCache,
+        quartierResolver: quartierResolver,
         collectorId: 'collector-a',
         syncInterval: const Duration(days: 1),
         clock: () => currentTime,
@@ -129,20 +164,10 @@ void main() {
       repository = _RecorderRepositoryFake();
       locationService = FakeLocationService(initialResult: locationResult);
       currentTime = DateTime(2024, 1, 1, 8);
-      reverseGeoService = _StubReverseGeocodingService(
-        const ReverseGeocodingResult.success(
-          ReverseGeocodingAddress(
-            formatted: 'Abidjan / Arr: Plateau / Plateau',
-            city: 'Abidjan',
-            arrondissement: 'Plateau',
-            quartier: 'Plateau',
-          ),
-        ),
-      );
-      reverseGeocodingCache = ReverseGeocodingCache(
-        service: reverseGeoService,
-        ttl: const Duration(minutes: 30),
-      );
+      final resolvedQuartier = QuartierResolution.resolved('Plateau');
+      quartierResolver = _SequencedQuartierResolverFake()
+        ..defaultSingle = resolvedQuartier
+        ..defaultBatch = resolvedQuartier;
     });
 
     tearDown(() async {
@@ -216,22 +241,23 @@ void main() {
 
       expect(repository._pending, isNotEmpty);
       expect(repository._pending.single.quartier, equals('Plateau'));
-      expect(reverseGeoService.invocationCount, equals(1));
-      expect(reverseGeoService.lastLatitude, closeTo(5.11111, 0.00001));
-      expect(reverseGeoService.lastLongitude, closeTo(-4.22222, 0.00001));
+      expect(quartierResolver.resolveInvocationCount, equals(1));
+      expect(quartierResolver.lastLatitude, closeTo(5.11111, 0.00001));
+      expect(quartierResolver.lastLongitude, closeTo(-4.22222, 0.00001));
       recorder.dispose();
     });
 
     test(
       'retries reverse geocoding asynchronously when initial lookup fails',
       () async {
-        reverseGeoService.setResult(
-          const ReverseGeocodingResult.failure('quota'),
-        );
+        quartierResolver
+          ..defaultSingle = const QuartierResolution.unknown()
+          ..enqueueSingle(const QuartierResolution.unknown())
+          ..defaultBatch = const QuartierResolution.unknown();
         final recorder = CollectorTrackRecorder(
           repository: repository,
           locationService: locationService,
-          reverseGeocodingCache: reverseGeocodingCache,
+          quartierResolver: quartierResolver,
           collectorId: 'collector-a',
           syncInterval: const Duration(days: 1),
           clock: () => currentTime,
@@ -250,15 +276,8 @@ void main() {
           equals(kUnknownQuartierLabel),
         );
 
-        reverseGeoService.setResult(
-          const ReverseGeocodingResult.success(
-            ReverseGeocodingAddress(
-              formatted: 'Abidjan / Arr: Plateau / Plateau',
-              city: 'Abidjan',
-              arrondissement: 'Plateau',
-              quartier: 'Plateau',
-            ),
-          ),
+        quartierResolver.enqueueBatch(
+          [QuartierResolution.resolved('Plateau')],
         );
 
         await Future<void>.delayed(const Duration(milliseconds: 80));

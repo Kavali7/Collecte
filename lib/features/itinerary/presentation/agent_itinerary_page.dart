@@ -12,7 +12,6 @@ import '../../../routing/app_router.dart';
 import '../application/agent_itinerary_controller.dart';
 import '../application/agent_itinerary_state.dart';
 import '../application/collector_track_recorder.dart';
-import '../domain/collector_track_point.dart';
 import 'widgets/itinerary_journal_table.dart';
 
 const _tileStoreName = 'collecteCache';
@@ -160,6 +159,7 @@ class _AgentItineraryPageState extends ConsumerState<AgentItineraryPage>
                 state: state,
                 mapController: _mapController,
                 height: mapHeight,
+                entries: journalEntries,
               ),
               if (state.locationErrorMessage != null)
                 Padding(
@@ -244,19 +244,30 @@ class ItineraryMapSection extends StatelessWidget {
     required this.state,
     required this.mapController,
     required this.height,
+    required this.entries,
   });
 
   final AgentItineraryState state;
   final MapController mapController;
   final double height;
+  final List<ItineraryJournalEntry> entries;
 
   @override
   Widget build(BuildContext context) {
-    final points = state.geoPoints;
-    final latLngPoints = points
-        .map((point) => LatLng(point.latitude, point.longitude))
+    final mapStops = entries
+        .asMap()
+        .entries
+        .where(
+          (entry) =>
+              entry.value.point.latitude.isFinite &&
+              entry.value.point.longitude.isFinite,
+        )
+        .map((entry) => _MapStop(order: entry.key + 1, entry: entry.value))
         .toList();
-    final markers = _buildMarkers(points);
+    final latLngPoints = mapStops
+        .map((stop) => stop.latLng)
+        .toList(growable: false);
+    const markerSize = 60.0;
 
     return SizedBox(
       height: height,
@@ -267,7 +278,7 @@ class ItineraryMapSection extends StatelessWidget {
             FlutterMap(
               mapController: mapController,
               options: MapOptions(
-                initialCenter: points.isNotEmpty
+                initialCenter: latLngPoints.isNotEmpty
                     ? latLngPoints.first
                     : _defaultCenter,
                 initialZoom: 13,
@@ -288,7 +299,19 @@ class ItineraryMapSection extends StatelessWidget {
                       ),
                     ],
                   ),
-                if (markers.isNotEmpty) MarkerLayer(markers: markers),
+                if (mapStops.isNotEmpty)
+                  MarkerLayer(
+                    markers: mapStops
+                        .map(
+                          (stop) => Marker(
+                            point: stop.latLng,
+                            width: markerSize,
+                            height: markerSize,
+                            child: _NumberedStopMarker(order: stop.order),
+                          ),
+                        )
+                        .toList(),
+                  ),
               ],
             ),
             if (state.isLoading)
@@ -298,7 +321,7 @@ class ItineraryMapSection extends StatelessWidget {
                   child: Center(child: CircularProgressIndicator()),
                 ),
               ),
-            if (!state.isLoading && points.isEmpty)
+            if (!state.isLoading && entries.isEmpty)
               const Positioned.fill(
                 child: _EmptyMapMessage(
                   message:
@@ -310,76 +333,62 @@ class ItineraryMapSection extends StatelessWidget {
       ),
     );
   }
-
-  List<Marker> _buildMarkers(List<CollectorTrackPoint> points) {
-    if (points.isEmpty) return const <Marker>[];
-    const markerSize = 72.0;
-    final markers = <Marker>[];
-    final start = points.first;
-    final end = points.last;
-    markers.add(
-      Marker(
-        point: LatLng(start.latitude, start.longitude),
-        width: markerSize,
-        height: markerSize,
-        child: _MarkerBadge(
-          label: 'Depart',
-          icon: Icons.flag,
-          color: Colors.green.shade600,
-        ),
-      ),
-    );
-    if (end.id != start.id) {
-      markers.add(
-        Marker(
-          point: LatLng(end.latitude, end.longitude),
-          width: markerSize,
-          height: markerSize,
-          child: _MarkerBadge(
-            label: 'Arrivee',
-            icon: Icons.location_on,
-            color: Colors.red.shade600,
-          ),
-        ),
-      );
-    }
-    return markers;
-  }
 }
 
-class _MarkerBadge extends StatelessWidget {
-  const _MarkerBadge({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
+class _MapStop {
+  const _MapStop({required this.order, required this.entry});
 
-  final String label;
-  final IconData icon;
-  final Color color;
+  final int order;
+  final ItineraryJournalEntry entry;
+
+  LatLng get latLng => LatLng(entry.point.latitude, entry.point.longitude);
+}
+
+class _NumberedStopMarker extends StatelessWidget {
+  const _NumberedStopMarker({required this.order});
+
+  final int order;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = order == 1 ? Colors.green.shade600 : colorScheme.primary;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 28),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(6),
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
             boxShadow: const [
               BoxShadow(
-                color: Colors.black12,
+                color: Colors.black26,
                 blurRadius: 6,
-                offset: Offset(0, 2),
+                offset: Offset(0, 3),
               ),
             ],
           ),
+          alignment: Alignment.center,
           child: Text(
-            label,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+            '$order',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
           ),
         ),
       ],

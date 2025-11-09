@@ -1,4 +1,5 @@
 import 'package:collecte_revendeurs/core/location/location_service.dart';
+import 'package:collecte_revendeurs/core/location/quartier_resolver.dart';
 import 'package:collecte_revendeurs/core/location/reverse_geocoding_cache.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/agent_itinerary_controller.dart';
 import 'package:collecte_revendeurs/features/itinerary/application/agent_itinerary_state.dart';
@@ -17,7 +18,7 @@ class _StubAgentItineraryController extends AgentItineraryController {
   _StubAgentItineraryController(AgentItineraryState stubState)
     : super(
         repository: const _NoopCollectorTrackRepository(),
-        reverseGeocodingCache: ReverseGeocodingCache(),
+        quartierResolver: const _NoopQuartierResolver(),
         collectorId: 'stub-agent',
       ) {
     state = stubState;
@@ -93,10 +94,33 @@ class _StubCollectorTrackRecorder extends CollectorTrackRecorder {
     : super(
         repository: const _NoopCollectorTrackRepository(),
         locationService: const _NoopLocationService(),
-        reverseGeocodingCache: ReverseGeocodingCache(),
+        quartierResolver: const _NoopQuartierResolver(),
         collectorId: '',
       ) {
     state = stubState;
+  }
+}
+
+class _NoopQuartierResolver implements QuartierResolver {
+  const _NoopQuartierResolver();
+
+  @override
+  Future<QuartierResolution> resolve({
+    required double latitude,
+    required double longitude,
+  }) async {
+    return const QuartierResolution.unknown();
+  }
+
+  @override
+  Future<List<QuartierResolution>> resolveBatch(
+    List<ReverseGeocodingCoordinate> coordinates,
+  ) async {
+    return List<QuartierResolution>.filled(
+      coordinates.length,
+      const QuartierResolution.unknown(),
+      growable: false,
+    );
   }
 }
 
