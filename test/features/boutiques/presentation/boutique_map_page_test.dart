@@ -18,7 +18,11 @@ class _FakeBoutiqueRepository implements BoutiqueRepository {
   Future<Boutique> create(Boutique boutique) async => boutique;
 
   @override
-  Future<List<Boutique>> loadBoutiques(String collectorId) async => const [];
+  Future<List<Boutique>> loadBoutiques(
+    String collectorId, {
+    DateTime? forDate,
+  }) async =>
+      const [];
 
   @override
   Future<Boutique> update(Boutique boutique) async => boutique;

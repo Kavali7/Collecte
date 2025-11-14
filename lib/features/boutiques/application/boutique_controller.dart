@@ -6,6 +6,7 @@ import '../data/boutique_repository.dart';
 import '../data/cache/boutique_cache_store.dart';
 import '../data/firebase_boutique_repository.dart';
 import '../domain/boutique.dart';
+import '../domain/day_range.dart';
 import 'boutique_list_state.dart';
 
 final boutiqueListControllerProvider =
@@ -30,15 +31,21 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
     this._repository,
     this._cacheStore, {
     required String? collectorId,
+    DateTime Function()? clock,
   })  : _collectorId = collectorId,
+        _clock = clock ?? DateTime.now,
+        _currentDay = DayRange.normalize((clock ?? DateTime.now)()),
         super(const BoutiqueListState.initial());
 
   final BoutiqueRepository _repository;
   final BoutiqueCacheStore _cacheStore;
   final String? _collectorId;
+  final DateTime Function() _clock;
+  DateTime _currentDay;
   final Uuid _uuid = const Uuid();
 
   Future<void> initialize() async {
+    final filterDate = _refreshCurrentDay();
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {
       state = state.copyWith(
@@ -49,14 +56,17 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
       return;
     }
 
-    final cachedBoutiques = await _cacheStore.load();
+    final cachedBoutiques = await _cacheStore.load(forDate: filterDate);
     state = state.copyWith(
       boutiques: cachedBoutiques.isNotEmpty ? cachedBoutiques : state.boutiques,
       isLoading: cachedBoutiques.isEmpty,
       isOfflineFallback: false,
     );
     try {
-      final items = await _repository.loadBoutiques(collectorId);
+      final items = await _repository.loadBoutiques(
+        collectorId,
+        forDate: filterDate,
+      );
       state = state.copyWith(
         boutiques: items,
         isLoading: false,
@@ -76,6 +86,8 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
   }
 
   Future<Boutique> createOrUpdate(Boutique boutique) async {
+    final filterDate = _refreshCurrentDay();
+    final dayRange = DayRange(filterDate);
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {
       throw StateError('Collector ID non disponible');
@@ -99,11 +111,15 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
         updatedItems.removeWhere((item) => item.id == boutique.id);
       }
 
-      final index = updatedItems.indexWhere((item) => item.id == saved.id);
-      if (index != -1) {
-        updatedItems[index] = saved;
+      if (dayRange.contains(saved.submittedAt)) {
+        final index = updatedItems.indexWhere((item) => item.id == saved.id);
+        if (index != -1) {
+          updatedItems[index] = saved;
+        } else {
+          updatedItems.add(saved);
+        }
       } else {
-        updatedItems.add(saved);
+        updatedItems.removeWhere((item) => item.id == saved.id);
       }
 
       state = state.copyWith(boutiques: updatedItems, isLoading: false);
@@ -115,11 +131,15 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
         id: localId,
         syncStatus: SyncStatus.pending,
       );
-      final index = updatedItems.indexWhere((item) => item.id == localId);
-      if (index != -1) {
-        updatedItems[index] = pending;
+      if (dayRange.contains(pending.submittedAt)) {
+        final index = updatedItems.indexWhere((item) => item.id == localId);
+        if (index != -1) {
+          updatedItems[index] = pending;
+        } else {
+          updatedItems.add(pending);
+        }
       } else {
-        updatedItems.add(pending);
+        updatedItems.removeWhere((item) => item.id == localId);
       }
       state = state.copyWith(boutiques: updatedItems, isLoading: false);
       await _cacheStore.saveAll(updatedItems);
@@ -154,5 +174,24 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
       return withCollector;
     }
     return withCollector.copyWith(submittedAt: DateTime.now());
+  }
+
+  DateTime _refreshCurrentDay() {
+    final today = DayRange.normalize(_clock());
+    if (!DayRange.isSameDay(today, _currentDay)) {
+      _currentDay = today;
+      _pruneStateForCurrentDay();
+    }
+    return _currentDay;
+  }
+
+  void _pruneStateForCurrentDay() {
+    final range = DayRange(_currentDay);
+    final filtered = state.boutiques
+        .where((boutique) => range.contains(boutique.submittedAt))
+        .toList();
+    if (filtered.length != state.boutiques.length) {
+      state = state.copyWith(boutiques: filtered);
+    }
   }
 }

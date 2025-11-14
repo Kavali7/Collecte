@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/boutique.dart';
+import '../domain/day_range.dart';
 import 'boutique_repository.dart';
 
 final boutiqueRepositoryProvider = Provider<BoutiqueRepository>((ref) {
@@ -27,12 +28,30 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
   final FirebaseStorage _storage;
 
   @override
-  Future<List<Boutique>> loadBoutiques(String collectorId) async {
+  Future<List<Boutique>> loadBoutiques(
+    String collectorId, {
+    DateTime? forDate,
+  }) async {
     if (collectorId.isEmpty) return const [];
     final collection = _firestore.collection(_collectionName);
-    final ownedQuery = await collection
-        .where('collectorId', isEqualTo: collectorId)
-        .orderBy('createdAt', descending: true)
+    final dayRange = forDate != null ? DayRange(forDate) : null;
+
+    Query<Map<String, dynamic>> ownedQuery = collection
+        .where('collectorId', isEqualTo: collectorId);
+    if (dayRange != null) {
+      ownedQuery = ownedQuery
+          .where(
+            'submittedAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(dayRange.start),
+          )
+          .where(
+            'submittedAt',
+            isLessThan: Timestamp.fromDate(dayRange.end),
+          );
+    }
+
+    final ownedSnapshot = await ownedQuery
+        .orderBy('submittedAt', descending: true)
         .get();
 
     final orphanQuery =
@@ -43,7 +62,7 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
       }
     }
 
-    final combinedDocs = [...ownedQuery.docs, ...orphanQuery.docs];
+    final combinedDocs = [...ownedSnapshot.docs, ...orphanQuery.docs];
     final boutiques = combinedDocs
         .map(
           (doc) => _mapDocument(
@@ -51,6 +70,10 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
             doc.id,
             fallbackCollectorId: collectorId,
           ),
+        )
+        .where(
+          (boutique) =>
+              dayRange == null || dayRange.contains(boutique.submittedAt),
         )
         .toList();
 

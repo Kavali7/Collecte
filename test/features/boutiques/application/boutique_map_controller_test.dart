@@ -42,6 +42,7 @@ void main() {
   });
 
   test('load cached boutiques when offline', () async {
+    final now = DateTime.now();
     final cachedBoutique = Boutique(
       id: 'cache-1',
       nom: 'Boutique Cached',
@@ -51,8 +52,14 @@ void main() {
       telephones: const ['0700000000'],
       latitude: 5.32,
       longitude: -4.00,
-      dateDeVisite: DateTime(2024, 6, 12),
-      submittedAt: DateTime(2024, 6, 10, 8, 30),
+      dateDeVisite: DateTime(
+        now.year,
+        now.month,
+        now.day,
+        8,
+        0,
+      ),
+      submittedAt: now,
       syncStatus: SyncStatus.pending,
     );
 
@@ -148,10 +155,24 @@ class _FakeBoutiqueRepository implements BoutiqueRepository {
   }
 
   @override
-  Future<List<Boutique>> loadBoutiques(String collectorId) async {
-    return remoteBoutiques
-        .where((boutique) => boutique.collectorId == collectorId)
-        .toList();
+  Future<List<Boutique>> loadBoutiques(
+    String collectorId, {
+    DateTime? forDate,
+  }) async {
+    DateTime? start;
+    DateTime? end;
+    if (forDate != null) {
+      start = DateTime(forDate.year, forDate.month, forDate.day);
+      end = start.add(const Duration(days: 1));
+    }
+    return remoteBoutiques.where((boutique) {
+      if (boutique.collectorId != collectorId) return false;
+      if (start == null || end == null) return true;
+      final submittedAt = boutique.submittedAt;
+      if (submittedAt == null) return false;
+      final local = submittedAt.isUtc ? submittedAt.toLocal() : submittedAt;
+      return !local.isBefore(start) && local.isBefore(end);
+    }).toList();
   }
 
   @override

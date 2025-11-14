@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../auth/controllers/auth_controller.dart';
 import '../../domain/boutique.dart';
+import '../../domain/day_range.dart';
 
 class BoutiqueCacheStore {
   BoutiqueCacheStore({Directory? baseDirectory, String? collectorId})
@@ -28,7 +29,7 @@ class BoutiqueCacheStore {
     }
   }
 
-  Future<List<Boutique>> load() async {
+  Future<List<Boutique>> load({DateTime? forDate}) async {
     try {
       final file = await _resolveFile();
       if (!await file.exists()) return const [];
@@ -36,9 +37,16 @@ class BoutiqueCacheStore {
       if (content.trim().isEmpty) return const [];
       final raw = jsonDecode(content);
       if (raw is! List) return const [];
-      return raw
+      final boutiques = raw
           .whereType<Map<String, dynamic>>()
           .map(_fromJson)
+          .toList(growable: false);
+      if (forDate == null) {
+        return boutiques;
+      }
+      final range = DayRange(forDate);
+      return boutiques
+          .where((boutique) => range.contains(boutique.submittedAt))
           .toList(growable: false);
     } catch (_) {
       return const [];

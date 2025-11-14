@@ -83,7 +83,10 @@ class _StubBoutiqueRepository implements BoutiqueRepository {
   bool telephoneAvailable = true;
 
   @override
-  Future<List<Boutique>> loadBoutiques(String collectorId) async =>
+  Future<List<Boutique>> loadBoutiques(
+    String collectorId, {
+    DateTime? forDate,
+  }) async =>
       <Boutique>[];
 
   @override

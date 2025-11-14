@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:uuid/uuid.dart';
 
 import '../domain/boutique.dart';
+import '../domain/day_range.dart';
 import 'boutique_repository.dart';
 
 class MockBoutiqueRepository implements BoutiqueRepository {
@@ -14,10 +15,18 @@ class MockBoutiqueRepository implements BoutiqueRepository {
   final List<Boutique> _boutiques = [];
 
   @override
-  Future<List<Boutique>> loadBoutiques(String collectorId) async {
+  Future<List<Boutique>> loadBoutiques(
+    String collectorId, {
+    DateTime? forDate,
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
+    final dayRange = forDate != null ? DayRange(forDate) : null;
     return List.unmodifiable(
-      _boutiques.where((boutique) => boutique.collectorId == collectorId),
+      _boutiques.where(
+        (boutique) =>
+            boutique.collectorId == collectorId &&
+            (dayRange == null || dayRange.contains(boutique.submittedAt)),
+      ),
     );
   }
 
