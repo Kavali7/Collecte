@@ -109,9 +109,6 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
 
   Future<Boutique> createOrUpdate(Boutique boutique) async {
     final filterDate = _refreshCurrentDay();
-    if (_isOffline) {
-      throw StateError('Mode hors connexion : action impossible.');
-    }
     final dayRange = DayRange(filterDate);
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {

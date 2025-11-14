@@ -9,6 +9,7 @@ import 'package:collecte_revendeurs/core/location/locationiq_reverse_geocoding.d
 import 'package:collecte_revendeurs/core/location/location_providers.dart';
 import '../../application/boutique_controller.dart';
 import '../../domain/boutique.dart';
+import '../widgets/offline_blocking_overlay.dart';
 
 class BoutiqueFormPage extends ConsumerStatefulWidget {
   const BoutiqueFormPage({super.key, this.boutiqueId});
@@ -91,23 +92,22 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Modifier la boutique' : 'Nouvelle boutique'),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (isOffline) const _OfflineFormBanner(),
-                if (isOffline) const SizedBox(height: 12),
-                _PhotoPickerSection(
-                  photoPaths: _photoPaths,
-                  isEditable: !_isEditing && !isOffline,
-                  onAddPhoto:
-                      (_isEditing || isOffline) ? null : _capturePhoto,
-                  onRemovePhoto: _isEditing ? null : _removePhotoAt,
-                ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _PhotoPickerSection(
+                      photoPaths: _photoPaths,
+                      isEditable: !_isEditing,
+                      onAddPhoto: _isEditing ? null : _capturePhoto,
+                      onRemovePhoto: _isEditing ? null : _removePhotoAt,
+                    ),
                 const SizedBox(height: 16),
                 _LocationPreview(
                   latitude: _latitude,
@@ -262,22 +262,28 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                FilledButton.icon(
-                  key: const Key('boutique-form-submit-button'),
-                  onPressed:
-                      isOffline ||
-                              isSaving ||
-                              !_hasValidatedTelephones ||
-                              _isAnyTelephoneChecking
-                      ? null
-                      : _submit,
-                  icon: const Icon(Icons.save),
-                  label: Text(_isEditing ? 'Mettre a jour' : 'Enregistrer'),
+                    FilledButton.icon(
+                      key: const Key('boutique-form-submit-button'),
+                      onPressed:
+                          isSaving ||
+                                  !_hasValidatedTelephones ||
+                                  _isAnyTelephoneChecking
+                          ? null
+                          : _submit,
+                      icon: const Icon(Icons.save),
+                      label: Text(_isEditing ? 'Mettre a jour' : 'Enregistrer'),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          if (isOffline)
+            const OfflineBlockingOverlay(
+              message:
+                  'Reconnecte-toi a Internet pour continuer a collecter et enregistrer des boutiques.',
+            ),
+        ],
       ),
     );
   }
@@ -981,50 +987,6 @@ class _TelephoneFieldsEditor extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _OfflineFormBanner extends StatelessWidget {
-  const _OfflineFormBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFEAE5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFB8C00)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.cloud_off, color: Color(0xFFEF6C00)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Soumission indisponible hors connexion',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFBF360C),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Reconnecte-toi a Internet pour prendre des photos et enregistrer de nouvelles boutiques.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFFBF360C),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

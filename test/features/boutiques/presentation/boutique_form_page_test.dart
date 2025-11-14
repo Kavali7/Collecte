@@ -84,7 +84,7 @@ void main() {
     },
   );
 
-  testWidgets('affiche le blocage hors ligne et desactive la sauvegarde', (
+  testWidgets('affiche un voile hors ligne lorsque la connexion manque', (
     tester,
   ) async {
     final repository = _StubBoutiqueRepository();
@@ -109,11 +109,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Soumission indisponible'), findsOneWidget);
-
-    final buttonFinder = find.byKey(const Key('boutique-form-submit-button'));
-    final FilledButton button = tester.widget(buttonFinder);
-    expect(button.onPressed, isNull);
+    expect(find.text('Connexion perdue'), findsOneWidget);
+    expect(
+      find.textContaining('Reconnecte-toi a Internet'),
+      findsOneWidget,
+    );
   });
 }
 

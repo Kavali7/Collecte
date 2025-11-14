@@ -8,6 +8,7 @@ import '../../../auth/domain/auth_state.dart';
 import '../../application/boutique_controller.dart';
 import '../widgets/boutique_card.dart';
 import '../widgets/boutique_dashboard.dart';
+import '../widgets/offline_blocking_overlay.dart';
 
 class BoutiqueListPage extends ConsumerWidget {
   const BoutiqueListPage({super.key});
@@ -17,7 +18,6 @@ class BoutiqueListPage extends ConsumerWidget {
     final state = ref.watch(boutiqueListControllerProvider);
     final controller = ref.read(boutiqueListControllerProvider.notifier);
 
-    final isOffline = state.isOffline;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -49,72 +49,73 @@ class BoutiqueListPage extends ConsumerWidget {
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
-          onPressed: isOffline
-              ? null
-              : () => context.pushNamed(AppRoute.boutiqueNew.name),
+          onPressed: () => context.pushNamed(AppRoute.boutiqueNew.name),
           label: const Text('Nouvelle boutique'),
           icon: const Icon(Icons.add),
         ),
-        body: TabBarView(
+        body: Stack(
           children: [
-            RefreshIndicator(
-              onRefresh: controller.initialize,
-              child: ListView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  if (isOffline)
-                    const _OfflineNotice(),
-                  if (isOffline) const SizedBox(height: 12),
-                  _WelcomeHeader(authState: ref.watch(authControllerProvider)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    onChanged: controller.search,
-                    decoration: const InputDecoration(
-                      labelText: 'Rechercher une boutique ou un gerant',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (state.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 80),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (state.filteredBoutiques.isEmpty)
-                    _EmptyState(
-                      onCreate: isOffline
-                          ? null
-                          : () => context.pushNamed(
-                                AppRoute.boutiqueNew.name,
-                              ),
-                    )
-                  else
-                    ...state.filteredBoutiques.map(
-                      (boutique) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: BoutiqueCard(
-                          boutique: boutique,
-                          onTap: () => context.pushNamed(
-                            AppRoute.boutiqueDetail.name,
-                            pathParameters: {'id': boutique.id},
-                          ),
-                          onEdit: () => context.pushNamed(
-                            AppRoute.boutiqueEdit.name,
-                            pathParameters: {'id': boutique.id},
-                          ),
+            TabBarView(
+              children: [
+                RefreshIndicator(
+                  onRefresh: controller.initialize,
+                  child: ListView(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      _WelcomeHeader(authState: ref.watch(authControllerProvider)),
+                      const SizedBox(height: 16),
+                      TextField(
+                        onChanged: controller.search,
+                        decoration: const InputDecoration(
+                          labelText: 'Rechercher une boutique ou un gerant',
+                          prefixIcon: Icon(Icons.search),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 32),
-                ],
+                      const SizedBox(height: 16),
+                      if (state.isLoading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 80),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (state.filteredBoutiques.isEmpty)
+                        _EmptyState(
+                          onCreate: () =>
+                              context.pushNamed(AppRoute.boutiqueNew.name),
+                        )
+                      else
+                        ...state.filteredBoutiques.map(
+                          (boutique) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: BoutiqueCard(
+                              boutique: boutique,
+                              onTap: () => context.pushNamed(
+                                AppRoute.boutiqueDetail.name,
+                                pathParameters: {'id': boutique.id},
+                              ),
+                              onEdit: () => context.pushNamed(
+                                AppRoute.boutiqueEdit.name,
+                                pathParameters: {'id': boutique.id},
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+                BoutiqueDashboard(
+                  state: state,
+                  onRefresh: controller.initialize,
+                ),
+              ],
+            ),
+            if (state.isOffline)
+              const OfflineBlockingOverlay(
+                message:
+                    'Reconnecte-toi a Internet pour continuer a utiliser l\'application.',
               ),
-            ),
-            BoutiqueDashboard(
-              state: state,
-              onRefresh: controller.initialize,
-            ),
           ],
         ),
       ),
@@ -150,9 +151,9 @@ class _WelcomeHeader extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({this.onCreate});
+  const _EmptyState({required this.onCreate});
 
-  final VoidCallback? onCreate;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -185,51 +186,6 @@ class _EmptyState extends StatelessWidget {
             onPressed: onCreate,
             icon: const Icon(Icons.add),
             label: const Text('Ajouter une boutique'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OfflineNotice extends StatelessWidget {
-  const _OfflineNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4E5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFB74D)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.wifi_off, color: Color(0xFFFB8C00)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mode hors connexion',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFBF360C),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'La creation de nouvelles boutiques est temporairement desactivee. '
-                  'Reconnecte-toi pour poursuivre la collecte.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFFBF360C),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
