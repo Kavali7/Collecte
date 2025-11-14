@@ -1,0 +1,103 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && request.auth.token != null
+        && ('role' in request.auth.token)
+        && request.auth.token.role == 'admin';
+    }
+
+    function isOwnerDoc() {
+      return isSignedIn()
+        && resource != null
+        && resource.data.collectorId == request.auth.uid;
+    }
+
+    function isOwnerPayload() {
+      return isSignedIn()
+        && request.resource != null
+        && request.resource.data.collectorId == request.auth.uid;
+    }
+
+    function isOwnerDocOrUnassigned() {
+      return isSignedIn()
+        && resource != null
+        && (
+          resource.data.collectorId == request.auth.uid ||
+          !resource.data.containsKey('collectorId') ||
+          resource.data.collectorId == null
+        );
+    }
+
+    function isOwnerPayloadOrUnassigned() {
+      return isSignedIn()
+        && request.resource != null
+        && (
+          request.resource.data.collectorId == request.auth.uid ||
+          !request.resource.data.containsKey('collectorId') ||
+          request.resource.data.collectorId == null
+        );
+    }
+
+    function todayStart() {
+      return timestamp(
+        request.time.year,
+        request.time.month,
+        request.time.day,
+        0,
+        0,
+        0,
+        0,
+      );
+    }
+
+    function todayEnd() {
+      return todayStart().add(duration.value(1, 'd'));
+    }
+
+    function isTodayTimestamp(ts) {
+      return ts is timestamp && ts >= todayStart() && ts < todayEnd();
+    }
+
+    function resourceIsToday() {
+      return resource != null && isTodayTimestamp(resource.data.submittedAt);
+    }
+
+    function payloadIsToday() {
+      return request.resource != null &&
+        isTodayTimestamp(request.resource.data.submittedAt);
+    }
+
+    match /boutiques/{document} {
+      allow get, list: if (isOwnerDocOrUnassigned() && resourceIsToday()) || isAdmin();
+      allow create: if (isOwnerPayloadOrUnassigned() && payloadIsToday()) || isAdmin();
+      allow update: if (
+        isAdmin() ||
+        (
+          isOwnerDocOrUnassigned() &&
+          isOwnerPayloadOrUnassigned() &&
+          resourceIsToday() &&
+          payloadIsToday()
+        )
+      );
+      allow delete: if isOwnerDoc() || isAdmin();
+    }
+
+    match /collector_track_points/{docId} {
+      allow get, list: if isOwnerDoc() || isAdmin();
+      allow create: if isOwnerPayload() || isAdmin();
+      allow update, delete: if (isOwnerDoc() && isOwnerPayload()) || isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
