@@ -1,4 +1,5 @@
 import 'package:collecte_revendeurs/features/auth/controllers/auth_controller.dart';
+import 'package:collecte_revendeurs/core/network/connectivity_providers.dart';
 import 'package:collecte_revendeurs/features/boutiques/data/boutique_repository.dart';
 import 'package:collecte_revendeurs/features/boutiques/application/boutique_controller.dart';
 import 'package:collecte_revendeurs/features/boutiques/data/firebase_boutique_repository.dart';
@@ -9,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../test_utils/fake_connectivity_service.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -16,6 +19,8 @@ void main() {
     'desactive la sauvegarde tant que le numero de telephone n\'est pas valide',
     (tester) async {
       final repository = _StubBoutiqueRepository();
+      final connectivity = FakeConnectivityService(initiallyOnline: true);
+      addTearDown(connectivity.dispose);
       final mockAuth = MockFirebaseAuth(
         mockUser: MockUser(
           uid: 'tester',
@@ -30,6 +35,7 @@ void main() {
             boutiqueRepositoryProvider.overrideWithValue(repository),
             firebaseAuthProvider.overrideWithValue(mockAuth),
             authControllerProvider.overrideWith((ref) => AuthController(mockAuth)),
+            connectivityServiceProvider.overrideWithValue(connectivity),
           ],
           child: const MaterialApp(home: BoutiqueFormPage()),
         ),
@@ -77,6 +83,38 @@ void main() {
       expect(enabledButtonAfter.onPressed, isNotNull);
     },
   );
+
+  testWidgets('affiche le blocage hors ligne et desactive la sauvegarde', (
+    tester,
+  ) async {
+    final repository = _StubBoutiqueRepository();
+    final connectivity = FakeConnectivityService(initiallyOnline: false);
+    addTearDown(connectivity.dispose);
+    final mockAuth = MockFirebaseAuth(
+      mockUser: MockUser(uid: 'tester', email: 'tester@example.com'),
+      signedIn: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          boutiqueRepositoryProvider.overrideWithValue(repository),
+          firebaseAuthProvider.overrideWithValue(mockAuth),
+          authControllerProvider.overrideWith((ref) => AuthController(mockAuth)),
+          connectivityServiceProvider.overrideWithValue(connectivity),
+        ],
+        child: const MaterialApp(home: BoutiqueFormPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Soumission indisponible'), findsOneWidget);
+
+    final buttonFinder = find.byKey(const Key('boutique-form-submit-button'));
+    final FilledButton button = tester.widget(buttonFinder);
+    expect(button.onPressed, isNull);
+  });
 }
 
 class _StubBoutiqueRepository implements BoutiqueRepository {

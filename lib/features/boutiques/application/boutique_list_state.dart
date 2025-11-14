@@ -7,18 +7,21 @@ class BoutiqueListState {
     this.isLoading = false,
     this.searchTerm = '',
     this.isOfflineFallback = false,
+    this.isOffline = false,
   });
 
   const BoutiqueListState.initial()
     : boutiques = const [],
       isLoading = true,
       searchTerm = '',
-      isOfflineFallback = false;
+      isOfflineFallback = false,
+      isOffline = false;
 
   final List<Boutique> boutiques;
   final bool isLoading;
   final String searchTerm;
   final bool isOfflineFallback;
+  final bool isOffline;
 
   List<Boutique> get filteredBoutiques {
     final query = searchTerm.trim().toLowerCase();
@@ -48,12 +51,14 @@ class BoutiqueListState {
     bool? isLoading,
     String? searchTerm,
     bool? isOfflineFallback,
+    bool? isOffline,
   }) {
     return BoutiqueListState(
       boutiques: boutiques ?? this.boutiques,
       isLoading: isLoading ?? this.isLoading,
       searchTerm: searchTerm ?? this.searchTerm,
       isOfflineFallback: isOfflineFallback ?? this.isOfflineFallback,
+      isOffline: isOffline ?? this.isOffline,
     );
   }
 }

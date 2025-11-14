@@ -78,6 +78,9 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
     final isSaving = ref.watch(
       boutiqueListControllerProvider.select((state) => state.isLoading),
     );
+    final isOffline = ref.watch(
+      boutiqueListControllerProvider.select((state) => state.isOffline),
+    );
     final materialLocalizations = MaterialLocalizations.of(context);
     final visitLabel = _dateDeVisite == null
         ? 'Capture une premiere photo pour renseigner automatiquement la date.'
@@ -96,10 +99,13 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (isOffline) const _OfflineFormBanner(),
+                if (isOffline) const SizedBox(height: 12),
                 _PhotoPickerSection(
                   photoPaths: _photoPaths,
-                  isEditable: !_isEditing,
-                  onAddPhoto: _isEditing ? null : _capturePhoto,
+                  isEditable: !_isEditing && !isOffline,
+                  onAddPhoto:
+                      (_isEditing || isOffline) ? null : _capturePhoto,
                   onRemovePhoto: _isEditing ? null : _removePhotoAt,
                 ),
                 const SizedBox(height: 16),
@@ -259,9 +265,10 @@ class _BoutiqueFormPageState extends ConsumerState<BoutiqueFormPage> {
                 FilledButton.icon(
                   key: const Key('boutique-form-submit-button'),
                   onPressed:
-                      isSaving ||
-                          !_hasValidatedTelephones ||
-                          _isAnyTelephoneChecking
+                      isOffline ||
+                              isSaving ||
+                              !_hasValidatedTelephones ||
+                              _isAnyTelephoneChecking
                       ? null
                       : _submit,
                   icon: const Icon(Icons.save),
@@ -974,6 +981,50 @@ class _TelephoneFieldsEditor extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _OfflineFormBanner extends StatelessWidget {
+  const _OfflineFormBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFEAE5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFB8C00)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.cloud_off, color: Color(0xFFEF6C00)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Soumission indisponible hors connexion',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: const Color(0xFFBF360C),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Reconnecte-toi a Internet pour prendre des photos et enregistrer de nouvelles boutiques.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFFBF360C),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

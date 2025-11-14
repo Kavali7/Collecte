@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../auth/controllers/auth_controller.dart';
+import '../../../core/network/connectivity_providers.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../data/boutique_repository.dart';
 import '../data/cache/boutique_cache_store.dart';
 import '../data/firebase_boutique_repository.dart';
@@ -15,11 +19,13 @@ final boutiqueListControllerProvider =
       final cacheStore = ref.watch(boutiqueCacheStoreProvider);
       final authState = ref.watch(authControllerProvider);
       final firebaseAuth = ref.watch(firebaseAuthProvider);
+      final connectivityService = ref.watch(connectivityServiceProvider);
       final collectorId =
           authState.isAuthenticated ? firebaseAuth.currentUser?.uid : null;
       final controller = BoutiqueListController(
         repository,
         cacheStore,
+        connectivityService: connectivityService,
         collectorId: collectorId,
       );
       controller.initialize();
@@ -31,14 +37,20 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
     this._repository,
     this._cacheStore, {
     required String? collectorId,
+    required ConnectivityService connectivityService,
     DateTime Function()? clock,
   })  : _collectorId = collectorId,
+        _connectivityService = connectivityService,
         _clock = clock ?? DateTime.now,
         _currentDay = DayRange.normalize((clock ?? DateTime.now)()),
         super(const BoutiqueListState.initial());
 
   final BoutiqueRepository _repository;
   final BoutiqueCacheStore _cacheStore;
+  final ConnectivityService _connectivityService;
+  StreamSubscription<bool>? _connectivitySub;
+  bool _connectivityInitialized = false;
+  bool _isOffline = false;
   final String? _collectorId;
   final DateTime Function() _clock;
   DateTime _currentDay;
@@ -46,27 +58,36 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
 
   Future<void> initialize() async {
     final filterDate = _refreshCurrentDay();
+    await _ensureConnectivityMonitoring();
+    if (!mounted) return;
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {
       state = state.copyWith(
         boutiques: const [],
         isLoading: false,
         isOfflineFallback: false,
+        isOffline: _isOffline,
       );
       return;
     }
 
     final cachedBoutiques = await _cacheStore.load(forDate: filterDate);
+    if (!mounted) return;
     state = state.copyWith(
       boutiques: cachedBoutiques.isNotEmpty ? cachedBoutiques : state.boutiques,
-      isLoading: cachedBoutiques.isEmpty,
-      isOfflineFallback: false,
+      isLoading: !_isOffline && cachedBoutiques.isEmpty,
+      isOfflineFallback: _isOffline ? cachedBoutiques.isNotEmpty : false,
+      isOffline: _isOffline,
     );
+    if (_isOffline) {
+      return;
+    }
     try {
       final items = await _repository.loadBoutiques(
         collectorId,
         forDate: filterDate,
       );
+      if (!mounted) return;
       state = state.copyWith(
         boutiques: items,
         isLoading: false,
@@ -74,6 +95,7 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
       );
       await _cacheStore.saveAll(items);
     } catch (_) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         isOfflineFallback: state.boutiques.isNotEmpty,
@@ -87,6 +109,9 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
 
   Future<Boutique> createOrUpdate(Boutique boutique) async {
     final filterDate = _refreshCurrentDay();
+    if (_isOffline) {
+      throw StateError('Mode hors connexion : action impossible.');
+    }
     final dayRange = DayRange(filterDate);
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {
@@ -193,5 +218,30 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
     if (filtered.length != state.boutiques.length) {
       state = state.copyWith(boutiques: filtered);
     }
+  }
+
+  Future<void> _ensureConnectivityMonitoring() async {
+    if (_connectivityInitialized) return;
+    _connectivityInitialized = true;
+    final isOnline = await _connectivityService.isOnline();
+    if (!mounted) return;
+    _isOffline = !isOnline;
+    state = state.copyWith(isOffline: _isOffline);
+    _connectivitySub = _connectivityService.onStatusChanged.listen((online) {
+      if (!mounted) return;
+      final wasOffline = _isOffline;
+      _isOffline = !online;
+      state = state.copyWith(isOffline: _isOffline);
+      if (wasOffline && !_isOffline) {
+        // Trigger a refresh when the connection is restored.
+        unawaited(initialize());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
   }
 }
