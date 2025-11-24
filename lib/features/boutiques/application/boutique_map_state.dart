@@ -12,6 +12,9 @@ class BoutiqueMapState {
     this.userLocation,
     this.isLocatingUser = false,
     this.locationErrorMessage,
+    this.selectedDate,
+    this.isAllTime = false,
+    this.canChangeDateScope = false,
   });
 
   const BoutiqueMapState.initial()
@@ -22,7 +25,10 @@ class BoutiqueMapState {
       errorMessage = null,
       userLocation = null,
       isLocatingUser = false,
-      locationErrorMessage = null;
+      locationErrorMessage = null,
+      selectedDate = null,
+      isAllTime = false,
+      canChangeDateScope = false;
 
   final List<Boutique> boutiques;
   final bool isLoading;
@@ -32,6 +38,9 @@ class BoutiqueMapState {
   final DeviceLocation? userLocation;
   final bool isLocatingUser;
   final String? locationErrorMessage;
+  final DateTime? selectedDate;
+  final bool isAllTime;
+  final bool canChangeDateScope;
 
   BoutiqueMapState copyWith({
     List<Boutique>? boutiques,
@@ -45,6 +54,10 @@ class BoutiqueMapState {
     String? locationErrorMessage,
     bool resetLocationError = false,
     bool clearUserLocation = false,
+    DateTime? selectedDate,
+    bool clearSelectedDate = false,
+    bool? isAllTime,
+    bool? canChangeDateScope,
   }) {
     return BoutiqueMapState(
       boutiques: boutiques ?? this.boutiques,
@@ -59,6 +72,10 @@ class BoutiqueMapState {
       locationErrorMessage: resetLocationError
           ? null
           : (locationErrorMessage ?? this.locationErrorMessage),
+      selectedDate:
+          clearSelectedDate ? null : (selectedDate ?? this.selectedDate),
+      isAllTime: isAllTime ?? this.isAllTime,
+      canChangeDateScope: canChangeDateScope ?? this.canChangeDateScope,
     );
   }
 }

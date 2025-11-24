@@ -67,6 +67,13 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
         ),
         title: const Text('Carte des collectes'),
         actions: [
+          if (state.canChangeDateScope)
+            _DateFilterMenu(
+              state: state,
+              onSelectToday: controller.setFilterToToday,
+              onSelectAll: controller.setFilterToAllTime,
+              onSelectDate: controller.setFilterToDate,
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: _StatusChip(isOffline: state.isOffline),
@@ -252,6 +259,103 @@ class _BoutiqueMapPageState extends ConsumerState<BoutiqueMapPage> {
     } else {
       controller.refreshUserLocation();
     }
+  }
+}
+
+enum _DateFilterAction { today, pickDate, allTime }
+
+class _DateFilterMenu extends StatelessWidget {
+  const _DateFilterMenu({
+    required this.state,
+    required this.onSelectToday,
+    required this.onSelectAll,
+    required this.onSelectDate,
+  });
+
+  final BoutiqueMapState state;
+  final Future<void> Function() onSelectToday;
+  final Future<void> Function() onSelectAll;
+  final Future<void> Function(DateTime date) onSelectDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _formatLabel(state);
+    return PopupMenuButton<_DateFilterAction>(
+      tooltip: 'Filtrer les collectes',
+      onSelected: (action) async {
+        switch (action) {
+          case _DateFilterAction.today:
+            await onSelectToday();
+            break;
+          case _DateFilterAction.pickDate:
+            final initial = state.selectedDate ?? DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: initial,
+              firstDate: DateTime(2020, 1, 1),
+              lastDate: DateTime.now(),
+            );
+            if (picked != null) {
+              await onSelectDate(picked);
+            }
+            break;
+          case _DateFilterAction.allTime:
+            await onSelectAll();
+            break;
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: _DateFilterAction.today,
+          child: Text("Aujourd'hui"),
+        ),
+        PopupMenuItem(
+          value: _DateFilterAction.pickDate,
+          child: Text('Choisir une date'),
+        ),
+        PopupMenuItem(
+          value: _DateFilterAction.allTime,
+          child: Text('Historique complet'),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceVariant,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.calendar_today, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatLabel(BoutiqueMapState state) {
+    if (state.isAllTime) return 'Historique';
+    final today = DateUtils.dateOnly(DateTime.now());
+    final selected = DateUtils.dateOnly(
+      state.selectedDate ?? DateTime.now(),
+    );
+    if (DateUtils.isSameDay(today, selected)) {
+      return "Aujourd'hui";
+    }
+    final day = selected.day.toString().padLeft(2, '0');
+    final month = selected.month.toString().padLeft(2, '0');
+    return '$day/$month/${selected.year}';
   }
 }
 

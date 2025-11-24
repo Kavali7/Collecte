@@ -72,6 +72,7 @@ void main() {
       locationService: locationService,
       collectorId: 'tester',
       canViewAllCollectors: false,
+      isSuperAdmin: false,
     );
 
     expect(controller.state, const BoutiqueMapState.initial());
@@ -92,14 +93,15 @@ void main() {
   test(
     'refreshUserLocation stores latest coordinates and updates via stream',
     () async {
-      final controller = BoutiqueMapController(
-        repository: repository,
-        cacheStore: cacheStore,
-        connectivityService: connectivity,
-        locationService: locationService,
-        collectorId: 'tester',
-        canViewAllCollectors: false,
-      );
+    final controller = BoutiqueMapController(
+      repository: repository,
+      cacheStore: cacheStore,
+      connectivityService: connectivity,
+      locationService: locationService,
+      collectorId: 'tester',
+      canViewAllCollectors: false,
+      isSuperAdmin: false,
+    );
 
       await controller.refreshUserLocation();
 
@@ -136,6 +138,7 @@ void main() {
       locationService: locationService,
       collectorId: 'tester',
       canViewAllCollectors: false,
+      isSuperAdmin: false,
     );
 
     await controller.refreshUserLocation();
@@ -146,6 +149,69 @@ void main() {
 
     controller.dispose();
   });
+
+  test(
+    'super admin demarre sur la date du jour et peut basculer sur tout',
+    () async {
+      final now = DateTime(2025, 1, 20, 10);
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      repository.remoteBoutiques = [
+        Boutique(
+          id: 'today',
+          nom: 'Boutique Today',
+          nomGerantComplet: 'Gerant',
+          collectorId: 'collector-a',
+          specialite: BoutiqueSpecialite.telephone,
+          telephones: const ['0101010101'],
+          latitude: 5.3,
+          longitude: -4.0,
+          submittedAt: today,
+          syncStatus: SyncStatus.synced,
+        ),
+        Boutique(
+          id: 'yesterday',
+          nom: 'Boutique Old',
+          nomGerantComplet: 'Gerant',
+          collectorId: 'collector-b',
+          specialite: BoutiqueSpecialite.telephone,
+          telephones: const ['0202020202'],
+          latitude: 5.4,
+          longitude: -4.1,
+          submittedAt: yesterday,
+          syncStatus: SyncStatus.synced,
+        ),
+      ];
+      connectivity.setOnline(true);
+
+      final controller = BoutiqueMapController(
+        repository: repository,
+        cacheStore: cacheStore,
+        connectivityService: connectivity,
+        locationService: locationService,
+        collectorId: 'admin',
+        canViewAllCollectors: true,
+        isSuperAdmin: true,
+        clock: () => now,
+      );
+
+      await controller.initialize();
+
+      expect(controller.state.isAllTime, isFalse);
+      expect(controller.state.selectedDate, today);
+      expect(controller.state.boutiques, hasLength(1));
+      expect(controller.state.boutiques.first.id, 'today');
+
+      await controller.setFilterToAllTime();
+
+      expect(controller.state.isAllTime, isTrue);
+      expect(controller.state.selectedDate, isNull);
+      final ids = controller.state.boutiques.map((b) => b.id).toSet();
+      expect(ids, containsAll({'today', 'yesterday'}));
+
+      controller.dispose();
+    },
+  );
 }
 
 class _FakeBoutiqueRepository implements BoutiqueRepository {

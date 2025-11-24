@@ -57,6 +57,7 @@ class _StubBoutiqueMapController extends BoutiqueMapController {
         ),
         collectorId: 'collector-test',
         canViewAllCollectors: false,
+        isSuperAdmin: false,
       );
 
   @override

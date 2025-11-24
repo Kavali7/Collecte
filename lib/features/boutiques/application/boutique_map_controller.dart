@@ -22,7 +22,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     required LocationService locationService,
     required String? collectorId,
     required bool canViewAllCollectors,
-    bool restrictToToday = true,
+    required bool isSuperAdmin,
     DateTime Function()? clock,
   }) : _repository = repository,
        _cacheStore = cacheStore,
@@ -30,7 +30,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
        _locationService = locationService,
        _collectorId = collectorId,
        _canViewAllCollectors = canViewAllCollectors,
-       _restrictToToday = restrictToToday,
+       _isSuperAdmin = isSuperAdmin,
        _clock = clock ?? DateTime.now,
        _currentDay = DayRange.normalize((clock ?? DateTime.now)()),
        super(const BoutiqueMapState.initial());
@@ -41,7 +41,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
   final LocationService _locationService;
   final String? _collectorId;
   final bool _canViewAllCollectors;
-  final bool _restrictToToday;
+  final bool _isSuperAdmin;
   final DateTime Function() _clock;
   DateTime _currentDay;
 
@@ -49,7 +49,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
   StreamSubscription<DeviceLocation>? _userLocationSub;
 
   Future<void> initialize() async {
-    final filterDate = _restrictToToday ? _refreshFilterDate() : null;
+    final filterDate = _initializeFilter();
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {
       state = state.copyWith(
@@ -57,38 +57,21 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
         isLoading: false,
         isOffline: false,
         resetError: true,
+        selectedDate: filterDate,
+        isAllTime: _shouldStartInAllTimeMode,
+        canChangeDateScope: _isSuperAdmin,
       );
       return;
     }
 
-    final cached = await _cacheStore.load(forDate: filterDate);
-    final isOnline = await _connectivityService.isOnline();
-    state = state.copyWith(
-      boutiques: cached,
-      isLoading: cached.isEmpty,
-      isOffline: !isOnline,
-      resetError: true,
-    );
-
-    _connectivitySub ??= _connectivityService.onStatusChanged.listen(
-      _onConnectivityChanged,
-    );
-
-    if (isOnline) {
-      await _refreshFromRemote(
-        targetDate: filterDate,
-        showLoading: cached.isEmpty,
-      );
-    } else {
-      state = state.copyWith(isLoading: false);
-    }
+    await _loadForFilter(filterDate);
 
     await refreshUserLocation();
   }
 
   Future<void> sync() async {
     final collectorId = _collectorId;
-    final filterDate = _restrictToToday ? _refreshFilterDate() : null;
+    final filterDate = _currentFilterDate();
     if (collectorId == null || collectorId.isEmpty) {
       state = state.copyWith(
         errorMessage: 'Utilisateur non authentifie.',
@@ -97,6 +80,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
       return;
     }
     final isOnline = await _connectivityService.isOnline();
+    state = state.copyWith(isOffline: !isOnline);
     if (!isOnline) {
       state = state.copyWith(
         errorMessage: 'Synchronisation impossible hors connexion.',
@@ -149,6 +133,116 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
       );
     } else {
       state = state.copyWith(isLocatingUser: false);
+    }
+  }
+
+  DateTime? _initializeFilter() {
+    _currentDay = DayRange.normalize(_clock());
+    final shouldStartAllTime = _shouldStartInAllTimeMode;
+    final initialDate = shouldStartAllTime ? null : _currentDay;
+
+    state = state.copyWith(
+      selectedDate: initialDate,
+      isAllTime: shouldStartAllTime,
+      canChangeDateScope: _isSuperAdmin,
+      resetError: true,
+      isLoading: false,
+    );
+    return initialDate;
+  }
+
+  Future<void> setFilterToToday() async {
+    if (!_isSuperAdmin) return;
+    final today = DayRange.normalize(_clock());
+    _currentDay = today;
+    await _applyFilter(targetDate: today, isAllTime: false);
+  }
+
+  Future<void> setFilterToAllTime() async {
+    if (!_isSuperAdmin) return;
+    await _applyFilter(targetDate: null, isAllTime: true);
+  }
+
+  Future<void> setFilterToDate(DateTime date) async {
+    if (!_isSuperAdmin) return;
+    final normalized = DayRange.normalize(date);
+    await _applyFilter(targetDate: normalized, isAllTime: false);
+  }
+
+  Future<void> _applyFilter({
+    required DateTime? targetDate,
+    required bool isAllTime,
+  }) async {
+    final currentTarget = _currentFilterDate();
+    final isSameFilter = (isAllTime && state.isAllTime) ||
+        (!isAllTime &&
+            !state.isAllTime &&
+            currentTarget != null &&
+            targetDate != null &&
+            DayRange.isSameDay(currentTarget, targetDate));
+    if (isSameFilter) return;
+
+    if (targetDate != null) {
+      _currentDay = targetDate;
+    }
+
+    state = state.copyWith(
+      selectedDate: targetDate,
+      isAllTime: isAllTime,
+      isLoading: true,
+      resetError: true,
+      clearSelectedDate: targetDate == null,
+    );
+
+    await _loadForFilter(targetDate);
+  }
+
+  DateTime? _currentFilterDate() {
+    if (state.isAllTime) {
+      return null;
+    }
+
+    final selected = state.selectedDate ?? _currentDay;
+    final normalized = DayRange.normalize(selected);
+
+    if (!_isSuperAdmin && !_canViewAllCollectors) {
+      final today = DayRange.normalize(_clock());
+      if (!DayRange.isSameDay(today, _currentDay)) {
+        _currentDay = today;
+        _pruneStateForDate(today);
+      }
+      if (!DayRange.isSameDay(normalized, today)) {
+        state = state.copyWith(selectedDate: today);
+        return today;
+      }
+      return today;
+    }
+
+    return normalized;
+  }
+
+  Future<void> _loadForFilter(DateTime? targetDate) async {
+    final cached = await _cacheStore.load(forDate: targetDate);
+    final isOnline = await _connectivityService.isOnline();
+
+    state = state.copyWith(
+      boutiques: cached,
+      isLoading: state.isLoading || cached.isEmpty,
+      isOffline: !isOnline,
+      resetError: true,
+    );
+
+    _connectivitySub ??= _connectivityService.onStatusChanged.listen(
+      _onConnectivityChanged,
+    );
+
+    if (isOnline) {
+      await _refreshFromRemote(
+        targetDate: targetDate,
+        showLoading: cached.isEmpty,
+      );
+    } else {
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -268,14 +362,8 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     );
   }
 
-  DateTime _refreshFilterDate() {
-    final today = DayRange.normalize(_clock());
-    if (!DayRange.isSameDay(today, _currentDay)) {
-      _currentDay = today;
-      _pruneStateForCurrentDay();
-    }
-    return _currentDay;
-  }
+  bool get _shouldStartInAllTimeMode =>
+      !_isSuperAdmin && _canViewAllCollectors;
 
   Future<List<Boutique>> _fetchRemoteBoutiques(DateTime? targetDate) {
     if (_canViewAllCollectors) {
@@ -291,9 +379,8 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     );
   }
 
-  void _pruneStateForCurrentDay() {
-    if (!_restrictToToday) return;
-    final range = DayRange(_currentDay);
+  void _pruneStateForDate(DateTime date) {
+    final range = DayRange(date);
     final filtered = state.boutiques
         .where((boutique) => range.contains(boutique.submittedAt))
         .toList();
@@ -311,6 +398,7 @@ final boutiqueMapControllerProvider =
       final collectorId =
           authState.isAuthenticated ? authState.userId : null;
       final canViewAll = authState.canManageAllCollectors;
+      final isSuperAdmin = authState.isSuperAdmin;
       final repository = ref.watch(boutiqueRepositoryProvider);
       final cacheStore = ref.watch(boutiqueCacheStoreProvider);
       final connectivityService = ref.watch(connectivityServiceProvider);
@@ -322,6 +410,6 @@ final boutiqueMapControllerProvider =
         locationService: locationService,
         collectorId: collectorId,
         canViewAllCollectors: canViewAll,
-        restrictToToday: !canViewAll,
+        isSuperAdmin: isSuperAdmin,
       );
     });
