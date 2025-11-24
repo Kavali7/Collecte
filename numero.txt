@@ -1,0 +1,314 @@
+Telephone,Nom(s) personne,Boutique(s)
+0152571548,3mm,3m service
+0147150078,3sE,3sE
+012356489,A effacer,A effacer
+0196378913,A effacer,A effacer
+0196378936,A effacer,A effacer
+0157771132,Abdul,Abdul
+0164033853,abel,abel
+0141544687,Abou,Abou bakar
+67047813,ACDI,ACDI service
+0196340777,ade deco,EtS ah déco
+0197742248,adebayor,adebayor gsm
+0194072224,adk,Adk gsm
+0194298660,adonai,adonai gsm
+0162784525,afi,ets africa
+0166863725,AG Maël,AG mael
+0196870242,agence immobilière,agence immobilière
+0197548750,aguero,Aguero GSM
+0191216410,aicheji,aicheji
+0196033893,aifon,aifon GSM
+0143847315,aike,aike
+0166423326,aike,aike
+0166728096,akim,akim GSM
+0196788594,alasane gsm,alasane
+0161080282,Alban,Alban
++2290154151522,Alidou AKODA,AFRICA PHONE
+0168393231,alino,alino gsm
+0196924673,AMF GSM,AMF GSM
+0162576100,ANAGUE DADA,ANAGUE TELECOMS Electro
+0166478226,ANAGUE DADA,DADA TECH ELECTRO
+0167868286,Android,Android clinic
+0194272903,ange,2fk service
+0196827313,Ange,Ange
+0153238666,apedi,apedido's
+052441020,Apollinaire GSM,appolinaire
+0167780604,ares GSM,ares GSM
+0148515951,arouna,arouna
+0196627919,asso,asso gsm
+0197775948,assogba,assogba
+0157729172,austive,ets austive
+0197791114,b mo,b mo
+0155140622,bachirou,bachirou gsm
+0152256073,basmad,basmad technicien
+0164065242,BBS,BBS GSM
+0165458863,beauté,douze beauté
+0162738442,bello,bello gsm
+0149881314,ben,ben gsm
+0196936090,Bertin,Bertin gsm
+0196530234,bienvo,bienvo GSM
+0148257721,bon séjour,bon séjour
+0190505657,Bonaventure,Bonaventure
+0191213993,bonheur,bonheur
+0192449745,Boris,Boris
+0190505323,briant,0190505323
+0166314961,cena,Cena GSM
+0196848197,cerveau électro,cerveau plus
+0197143982,cg2,cg2
+0194230576,chabel,chabel gsm
+0197580466,champion,champion gsm
+0147926624,Charline,Charline
+0161743284,chidu,chidu
+0191108899,choco,choco
+0197793735,chrst,Chris GSM
+0197936473,cible,cible
+0148258442,Claude,vaccin Claude
+0166659696,computer,computer phone
+0195867169,consty,consty électronique
+0162540855,cosmos,chez cosmos
+0194056909,crevas,crevas gsm
+0166070037,dag tec,dag tec
+0197880612,Damien,Damien GSM
+0160234794,Dani,EtS Dani GSM
+0149937471,Daouda,Daouda gsm
+0197174117,deal,fash deal
+0161001743,decor,série decor
+0166822205,depia,st depia
+0166588418,derler,drp dearler
+0160650922,dialo,dialo
+0197180839,diel,diel tehn
+0197384341,Dieu suffit,Dieu suffit
+0197760989,divin,le gredivin
+0157571831,divine,lumineux divine
+0167233045,dok,dok gsm
+0166113322,doss,doss gsm
+0197398185,EDI,EDI gsm
+0199268838,edou,edou
+0141553700,electro,Electro système
+0154619707,electro,electro
+0197899580,electro,electro
+0194307794,Elise,elise edjrose
+0197273692,eliyah,eliyah
+0159622217,emeka,Emeka gsm
+0191793661,emutex,emutex
+0152692262,enock,enok GSM
+0197418957,enock,enok
+0140585891,Eric,Béni gsm
+0161417023,Eric,key electro
+0166955592,Ernest electro,king info plus electro
+0162774317,ero electro,euro tech
+0196119078,espace,espace tic
+0197647453,espace,espace pro
+0167205762,espedit,espedit gsm
+0197999367,Ezekiel,Ezekiel service
+0167184680,Fabrice,Fabrice
+0197116212,fierté,fierté gsm
+0197897782,fifa,fifa GSM
+0162223992,firmin,firmin
+0162019948,franc,Franco
+0157566986,francko,franckoboy gsm
+0197703945,Franco,Franco gsm
+0197048232,Frédéric,Frédéric service
+0195536946,gamar,gamar gsm
+0169790636,geek Tech,geek Tech
+0166828483,germano,germano
+0140502887,ggm électro,ggm
+0168835459,gisboud,gisboud more
+64733930,glamour,glamour gsm
+0156199290,gloire,gloire
+010154653965,Gloire,Gloire digital
+0161749776,Glory,glory
+0195664395,gmb,gmb service
+0160469160,god,godness venture
+0164655633,godick,godick
+0194225304,GSM mobile,GSM mobile
+0157071376,guy,Ggsm
+0197717890,h phone,H phone
+0151723275,habib,C .habib
+0150773475,haikou,haikou service
+0196623441,hamza,hamza
+0150146750,Hamza,hamza gsm
+0161282870,harron,Harron Services Plus
+0197405170,hermanos,hermanos gsm
+0196170375,hilaire,EtS hilaire telecom
+0168116003,Honoré,Honoré
+0194278524,hop,hop
+0154797047,IFESCO communication,IFESCO COMMUNICATION
+0197895901,ijb,gbega oluwa
+0196025578,immensité,immensité
+0197395837,imr center,imr center
+0149377803,inter,bar inter
+0161983832,ishola,ishola et fils
+0147546414,israël,israël service
+0149731663,iva,iva tecno
+0141846203,ivan,geste Gsm electro
+0196709951,j.tech,j'tech service
+01 62382818,jahoun,jahoun gsm
+0159591321,jb,jb GSM
+0197704993,jean,jean smat
+0166514790,jjk electro,jjk service
+0156125670,john,john
+0196090597,john,john gsm
+0143255792,Johnson,ets Johnson
+0161116819,Johnson,Johnson
+0197719433,jonatex,jonatex
+0151517280,Jonathan,Jonathan service
+0157762687,josias,mayitide service
+0195321328,joto,joto service
+0167924031,jule,jule
+0190080669,jule,jule
+0197142769,juliano,juliano gsm
+0197214066,juliano,juliano
+0167600710,julio's,julio.s techn
+0161741273,jumo,jumo gsm
+0196400993,kana,kana GSM
+0157832733,kasimir,kasimir
+0144954204,kg,kg sm
+0197110013,kwabo,kwabo
+0167630045,Landry,Landry
+0152005585,laris,laris gsm
+0196671654,lasam,lasam
+0162206425,lazar INFORMATIQUE,lazar INFORMATIQUE
+0166848239,Lazarus,Lazarus gsm
+0147141478,leader,leader groupe
+0160694949,led electronics,led electronics
+0197565944,liberté electro,main de Dieu
+0167723391,lislaz,lislaz GSM
+0164182345,luc,denomi
+0140104457,magasine,magasine
+0160225019,maiga,maiga gsm
+0196143258,maintenance,maintenance électro
+0197739595,maison chargeur,maison chargeur
+0167484874,Malik,chez malik
+0197558119,Malik,globa services
+0167718712,malmos,malmos
+0151392877,manhougnon,manhougnon GSM
+0194180849,mano,"mano,s gsm"
+0160807468,marc,marx telecom
+0164955651,Marcelin,Marcelin
+0194428128,Marcelin,Marcelin
+0196010248,math,math GSM
+0159620215,mawona,mawona GSM
+0140793839,maye,chez maye
+0196870556,mc,mc gsm
+0197408232,mc gsm,mc gsm
+0197222149,miracle,miracle gsm
+0166442034,miram,miram gsm
+0197601153,miséricorde,miséricorde
+0196449827,mj,maison des jeunes
+0147367151,Mohamed,Mohamed gsm
+0192863499,Mohamed,Mohamed gbetagbo
+0151720843,mon destin,mon destin
+0166156619,mona,mona communication
+0197805084,monde,monde
+0196777248,multi services,multi services
+0145507744,nazer,nazer
+0151933639,Nollytech 0155839977,NOLLYTECH
+0140734048,numérique,numérique
+0149761597,Ob,ob GSM
+0143951577,obi,obi GSM
+0157213069,obina,obina service
+0165799201,obina,obina GSM
+0197058770,ola,ola oluwa
+0145098910,onilary,onilary gsm
+0196530215,osé,osé tech
+0141113612,oseni,oseni gsm
+0166880456,Oumar,Oumar
+0194855708,Oussama,Oussama
+0165927351,OYOLIMA ELECTRO,OYOLIMA Electro
+0196732047,Pacôme,Pacôme service
+0151387193,paolo,paolo gsm
+0162036239,patrice,patrice
+0167020678,Patrick,Patrick GSM
+0148781740,peter,peter
+0140797846,PFS MARKET,PFS MARKET ELECTRONIC
+0145562969,PFS MARKET,PFS MARKET ELECTRONIC
+0194605086,PFS MARKET,PFS MARKET ELECTRONIC
+0196146776,PFS MARKET,PFS MARKET ELECTRONIC
+0161253839,piedra,piedra
+0169888869,planet,planet phone
+0196759676,planet,planet phone
+0140553047,pluner,pluner
+0167239887,polyvalente,polyvalente service
+0152270697,pome,pome sum
+0191135486,Prisca,Prisca
+0162000312,pro,pro services express
+0197948983,Quentin,Quentin gsm
+0197621992,Raissa,EtS Raissa
+0197871770,REPARATEUR,REPARATEUR GSM
+0166393456,réparation,réparation gsm
+0167477635,richard,richard
+0152381307,ridoine,Ridoine
+0160561532,Rodolphe,Rodolphe service
+0161282100,roulex,rolex gsm
+0197934443,rtal,Rtal
+0197241359,salace gsm,salace gsm
+0196122700,salam,salam
+0197560776,Salomon,Gsm sam
+0143234487,samadou,samadou service
+0162246627,Sammy,Sammy gsm
+0164566857,samo,samo Williams
+0195523726,Samuel,Samuel
+0169122916,sara,sara com
+0159003616,saturnin,saturnin
+0196800507,senami,senami opportunity
+0161311154,Seraphin,IITEC Electro
+0146902656,service,zoul service
+0158860253,seydou,Seydou
+0144723492,simple,simple
+0146922488,Smart diezel,Smart diesel
+0199815873,Smart gsm,Smart gsm
+0196070213,sodemas,sodemas technologie
+0197362208,sodic,sodic
+0166824066,solution,solution GSM
+0197947692,sopano,sopano service
+0196012430,souleymane,Souleymane gsm
+0165268899,SOUSSOUNIMAHOU,SOUSSOUNIMAHOU GSM
+0148500988,Stanley,Stanley gsm
+0196128821,sualy,siuali busness
+0151216368,sunday,sunday
+0163514395,sunday,sunday service
+0164545458,sylvas,sylvas service
+0190966485,sylvestre electro,AUTHENTIQUE GSM
++2290197509329,syschem electro,syschem electro
+0165826509,tadagbe,tadagbe
+0141979762,tec,technicien godimey
+0197536391,tec zone,tec zone
+0160760079,tecno,technicien
+0195361136,tele,telecom
+0197559516,Thierry,Thierry GSM
+0162647396,thomas,thomas GSM
+0168935603,thomas,thomas GSM
+0196425714,thyeri,thyeri gsm
+0197540369,thyeri,thyeri gsm
+0195746639,tonton,tonton GSM
+0147766731,tony,tony gsm
+0161487130,touche,touche électronique
+0166613874,tozie,tozie service
+0159108057,tpj,tpj gsm
+0160977575,tunde,tunde gsm
+0190269440,tunde,tunde gsm
+0152578179,tuwale,tuwale gsm
+0165670163,uche,uche god
+0196451085,val,Val GSM
+0144702213,veral,ets versal
+0197242225,Vicky,Vicky gsm
+0140386821,Vincent,Vincent service
+0197287500,vision service,vision service
+0196378912,Voilà,A effacer
+0141214707,waris,waris
+0197052636,whfjfjjfufufi,xjjfkd
+0196249821,Wilfried,Wilfried gsm
+0197151504,will,will gsm
+0197747178,Wilson,plawimado
+0162151261,yasir,yasir service
+0195473577,yellow,yellow gsm
+0166513667,young,young service
+0195185714,Yves,Yves
+0190586784,zag electro,zag zaga
+0197012008,zelico,zelico gsm
+0191970345,Zorobabel,Zorobabel
+0146393924,zoud,zoud service
+0198742441,zoukaly,zoukaly
+0146168423,zoul,zoul gsm
+0155434590,Zoul,Zoul accessoires

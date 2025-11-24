@@ -25,6 +25,10 @@ class _FakeBoutiqueRepository implements BoutiqueRepository {
       const [];
 
   @override
+  Future<List<Boutique>> loadAllBoutiques({DateTime? forDate}) async =>
+      const [];
+
+  @override
   Future<Boutique> update(Boutique boutique) async => boutique;
 
   @override
@@ -52,6 +56,7 @@ class _StubBoutiqueMapController extends BoutiqueMapController {
           ),
         ),
         collectorId: 'collector-test',
+        canViewAllCollectors: false,
       );
 
   @override

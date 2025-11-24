@@ -128,6 +128,10 @@ class _StubBoutiqueRepository implements BoutiqueRepository {
       <Boutique>[];
 
   @override
+  Future<List<Boutique>> loadAllBoutiques({DateTime? forDate}) async =>
+      <Boutique>[];
+
+  @override
   Future<Boutique> create(Boutique boutique) async => boutique;
 
   @override

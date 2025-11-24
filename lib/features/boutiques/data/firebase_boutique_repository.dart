@@ -86,6 +86,38 @@ class FirebaseBoutiqueRepository implements BoutiqueRepository {
   }
 
   @override
+  Future<List<Boutique>> loadAllBoutiques({DateTime? forDate}) async {
+    final collection = _firestore.collection(_collectionName);
+    final dayRange = forDate != null ? DayRange(forDate) : null;
+
+    Query<Map<String, dynamic>> query = collection;
+    if (dayRange != null) {
+      query = query
+          .where(
+            'submittedAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(dayRange.start),
+          )
+          .where(
+            'submittedAt',
+            isLessThan: Timestamp.fromDate(dayRange.end),
+          );
+    }
+
+    final snapshot = await query.orderBy('submittedAt', descending: true).get();
+    final boutiques = snapshot.docs
+        .map((doc) => _mapDocument(doc, doc.id))
+        .toList(growable: false);
+
+    if (dayRange == null) {
+      return boutiques;
+    }
+
+    return boutiques
+        .where((boutique) => dayRange.contains(boutique.submittedAt))
+        .toList();
+  }
+
+  @override
   Future<Boutique> create(Boutique boutique) async {
     final docRef = _firestore.collection(_collectionName).doc();
 

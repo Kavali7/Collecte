@@ -7,11 +7,23 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
+    function hasRole(role) {
       return isSignedIn()
         && request.auth.token != null
         && ('role' in request.auth.token)
-        && request.auth.token.role == 'admin';
+        && request.auth.token.role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isSuperAdmin() {
+      return hasRole('super_admin');
+    }
+
+    function canManageAll() {
+      return isAdmin() || isSuperAdmin();
     }
 
     function isOwnerDoc() {
@@ -76,10 +88,10 @@ service cloud.firestore {
     }
 
     match /boutiques/{document} {
-      allow get, list: if (isOwnerDocOrUnassigned() && resourceIsToday()) || isAdmin();
-      allow create: if (isOwnerPayloadOrUnassigned() && payloadIsToday()) || isAdmin();
+      allow get, list: if (isOwnerDocOrUnassigned() && resourceIsToday()) || canManageAll();
+      allow create: if (isOwnerPayloadOrUnassigned() && payloadIsToday()) || canManageAll();
       allow update: if (
-        isAdmin() ||
+        canManageAll() ||
         (
           isOwnerDocOrUnassigned() &&
           isOwnerPayloadOrUnassigned() &&
@@ -87,13 +99,13 @@ service cloud.firestore {
           payloadIsToday()
         )
       );
-      allow delete: if isOwnerDoc() || isAdmin();
+      allow delete: if isOwnerDoc() || canManageAll();
     }
 
     match /collector_track_points/{docId} {
-      allow get, list: if isOwnerDoc() || isAdmin();
-      allow create: if isOwnerPayload() || isAdmin();
-      allow update, delete: if (isOwnerDoc() && isOwnerPayload()) || isAdmin();
+      allow get, list: if isOwnerDoc() || canManageAll();
+      allow create: if isOwnerPayload() || canManageAll();
+      allow update, delete: if (isOwnerDoc() && isOwnerPayload()) || canManageAll();
     }
 
     match /{document=**} {

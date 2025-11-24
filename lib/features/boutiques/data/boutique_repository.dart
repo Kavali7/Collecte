@@ -5,6 +5,7 @@ abstract class BoutiqueRepository {
     String collectorId, {
     DateTime? forDate,
   });
+  Future<List<Boutique>> loadAllBoutiques({DateTime? forDate});
   Future<Boutique> create(Boutique boutique);
   Future<Boutique> update(Boutique boutique);
   Future<bool> isTelephoneAvailable(

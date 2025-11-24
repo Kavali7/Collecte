@@ -18,15 +18,17 @@ final boutiqueListControllerProvider =
       final repository = ref.watch(boutiqueRepositoryProvider);
       final cacheStore = ref.watch(boutiqueCacheStoreProvider);
       final authState = ref.watch(authControllerProvider);
-      final firebaseAuth = ref.watch(firebaseAuthProvider);
       final connectivityService = ref.watch(connectivityServiceProvider);
       final collectorId =
-          authState.isAuthenticated ? firebaseAuth.currentUser?.uid : null;
+          authState.isAuthenticated ? authState.userId : null;
+      final canViewAll = authState.canManageAllCollectors;
       final controller = BoutiqueListController(
         repository,
         cacheStore,
         connectivityService: connectivityService,
         collectorId: collectorId,
+        canViewAllCollectors: canViewAll,
+        restrictToToday: !canViewAll,
       );
       controller.initialize();
       return controller;
@@ -38,8 +40,12 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
     this._cacheStore, {
     required String? collectorId,
     required ConnectivityService connectivityService,
+    required bool canViewAllCollectors,
+    bool restrictToToday = true,
     DateTime Function()? clock,
   })  : _collectorId = collectorId,
+        _canViewAllCollectors = canViewAllCollectors,
+        _restrictToToday = restrictToToday,
         _connectivityService = connectivityService,
         _clock = clock ?? DateTime.now,
         _currentDay = DayRange.normalize((clock ?? DateTime.now)()),
@@ -52,12 +58,14 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
   bool _connectivityInitialized = false;
   bool _isOffline = false;
   final String? _collectorId;
+  final bool _canViewAllCollectors;
+  final bool _restrictToToday;
   final DateTime Function() _clock;
   DateTime _currentDay;
   final Uuid _uuid = const Uuid();
 
   Future<void> initialize() async {
-    final filterDate = _refreshCurrentDay();
+    final filterDate = _restrictToToday ? _refreshCurrentDay() : null;
     await _ensureConnectivityMonitoring();
     if (!mounted) return;
     final collectorId = _collectorId;
@@ -83,10 +91,12 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
       return;
     }
     try {
-      final items = await _repository.loadBoutiques(
-        collectorId,
-        forDate: filterDate,
-      );
+      final items = _canViewAllCollectors
+          ? await _repository.loadAllBoutiques(forDate: filterDate)
+          : await _repository.loadBoutiques(
+              collectorId,
+              forDate: filterDate,
+            );
       if (!mounted) return;
       state = state.copyWith(
         boutiques: items,
@@ -108,8 +118,8 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
   }
 
   Future<Boutique> createOrUpdate(Boutique boutique) async {
-    final filterDate = _refreshCurrentDay();
-    final dayRange = DayRange(filterDate);
+    final filterDate = _restrictToToday ? _refreshCurrentDay() : null;
+    final dayRange = filterDate != null ? DayRange(filterDate) : null;
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {
       throw StateError('Collector ID non disponible');
@@ -133,7 +143,7 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
         updatedItems.removeWhere((item) => item.id == boutique.id);
       }
 
-      if (dayRange.contains(saved.submittedAt)) {
+      if (dayRange == null || dayRange.contains(saved.submittedAt)) {
         final index = updatedItems.indexWhere((item) => item.id == saved.id);
         if (index != -1) {
           updatedItems[index] = saved;
@@ -153,7 +163,7 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
         id: localId,
         syncStatus: SyncStatus.pending,
       );
-      if (dayRange.contains(pending.submittedAt)) {
+      if (dayRange == null || dayRange.contains(pending.submittedAt)) {
         final index = updatedItems.indexWhere((item) => item.id == localId);
         if (index != -1) {
           updatedItems[index] = pending;
@@ -199,6 +209,7 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
   }
 
   DateTime _refreshCurrentDay() {
+    if (!_restrictToToday) return _currentDay;
     final today = DayRange.normalize(_clock());
     if (!DayRange.isSameDay(today, _currentDay)) {
       _currentDay = today;
@@ -208,6 +219,7 @@ class BoutiqueListController extends StateNotifier<BoutiqueListState> {
   }
 
   void _pruneStateForCurrentDay() {
+    if (!_restrictToToday) return;
     final range = DayRange(_currentDay);
     final filtered = state.boutiques
         .where((boutique) => range.contains(boutique.submittedAt))

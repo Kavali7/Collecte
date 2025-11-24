@@ -31,6 +31,17 @@ class MockBoutiqueRepository implements BoutiqueRepository {
   }
 
   @override
+  Future<List<Boutique>> loadAllBoutiques({DateTime? forDate}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final dayRange = forDate != null ? DayRange(forDate) : null;
+    return List.unmodifiable(
+      _boutiques.where(
+        (boutique) => dayRange == null || dayRange.contains(boutique.submittedAt),
+      ),
+    );
+  }
+
+  @override
   Future<Boutique> create(Boutique boutique) async {
     final newBoutique = boutique.copyWith(
       id: _uuid.v4(),

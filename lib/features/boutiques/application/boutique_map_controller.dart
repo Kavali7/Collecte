@@ -21,12 +21,16 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     required ConnectivityService connectivityService,
     required LocationService locationService,
     required String? collectorId,
+    required bool canViewAllCollectors,
+    bool restrictToToday = true,
     DateTime Function()? clock,
   }) : _repository = repository,
        _cacheStore = cacheStore,
        _connectivityService = connectivityService,
        _locationService = locationService,
        _collectorId = collectorId,
+       _canViewAllCollectors = canViewAllCollectors,
+       _restrictToToday = restrictToToday,
        _clock = clock ?? DateTime.now,
        _currentDay = DayRange.normalize((clock ?? DateTime.now)()),
        super(const BoutiqueMapState.initial());
@@ -36,6 +40,8 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
   final ConnectivityService _connectivityService;
   final LocationService _locationService;
   final String? _collectorId;
+  final bool _canViewAllCollectors;
+  final bool _restrictToToday;
   final DateTime Function() _clock;
   DateTime _currentDay;
 
@@ -43,7 +49,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
   StreamSubscription<DeviceLocation>? _userLocationSub;
 
   Future<void> initialize() async {
-    final filterDate = _refreshFilterDate();
+    final filterDate = _restrictToToday ? _refreshFilterDate() : null;
     final collectorId = _collectorId;
     if (collectorId == null || collectorId.isEmpty) {
       state = state.copyWith(
@@ -70,7 +76,6 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
 
     if (isOnline) {
       await _refreshFromRemote(
-        collectorId: collectorId,
         targetDate: filterDate,
         showLoading: cached.isEmpty,
       );
@@ -83,7 +88,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
 
   Future<void> sync() async {
     final collectorId = _collectorId;
-    final filterDate = _refreshFilterDate();
+    final filterDate = _restrictToToday ? _refreshFilterDate() : null;
     if (collectorId == null || collectorId.isEmpty) {
       state = state.copyWith(
         errorMessage: 'Utilisateur non authentifie.',
@@ -104,7 +109,6 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     try {
       await _pushPending();
       await _refreshFromRemote(
-        collectorId: collectorId,
         targetDate: filterDate,
         showLoading: false,
       );
@@ -149,18 +153,14 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
   }
 
   Future<void> _refreshFromRemote({
-    required String collectorId,
-    required DateTime targetDate,
+    required DateTime? targetDate,
     required bool showLoading,
   }) async {
     if (showLoading) {
       state = state.copyWith(isLoading: true, resetError: true);
     }
     try {
-      final remote = await _repository.loadBoutiques(
-        collectorId,
-        forDate: targetDate,
-      );
+      final remote = await _fetchRemoteBoutiques(targetDate);
       final merged = await _mergeWithLocalPending(remote, targetDate);
       await _cacheStore.saveAll(merged);
       state = state.copyWith(
@@ -227,7 +227,7 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
 
   Future<List<Boutique>> _mergeWithLocalPending(
     List<Boutique> remote,
-    DateTime targetDate,
+    DateTime? targetDate,
   ) async {
     final cached = await _cacheStore.load(forDate: targetDate);
     if (cached.isEmpty) {
@@ -277,7 +277,22 @@ class BoutiqueMapController extends StateNotifier<BoutiqueMapState> {
     return _currentDay;
   }
 
+  Future<List<Boutique>> _fetchRemoteBoutiques(DateTime? targetDate) {
+    if (_canViewAllCollectors) {
+      return _repository.loadAllBoutiques(forDate: targetDate);
+    }
+    final collectorId = _collectorId;
+    if (collectorId == null || collectorId.isEmpty) {
+      return Future.value(const []);
+    }
+    return _repository.loadBoutiques(
+      collectorId,
+      forDate: targetDate,
+    );
+  }
+
   void _pruneStateForCurrentDay() {
+    if (!_restrictToToday) return;
     final range = DayRange(_currentDay);
     final filtered = state.boutiques
         .where((boutique) => range.contains(boutique.submittedAt))
@@ -293,9 +308,9 @@ final boutiqueMapControllerProvider =
       ref,
     ) {
       final authState = ref.watch(authControllerProvider);
-      final firebaseAuth = ref.watch(firebaseAuthProvider);
       final collectorId =
-          authState.isAuthenticated ? firebaseAuth.currentUser?.uid : null;
+          authState.isAuthenticated ? authState.userId : null;
+      final canViewAll = authState.canManageAllCollectors;
       final repository = ref.watch(boutiqueRepositoryProvider);
       final cacheStore = ref.watch(boutiqueCacheStoreProvider);
       final connectivityService = ref.watch(connectivityServiceProvider);
@@ -306,5 +321,7 @@ final boutiqueMapControllerProvider =
         connectivityService: connectivityService,
         locationService: locationService,
         collectorId: collectorId,
+        canViewAllCollectors: canViewAll,
+        restrictToToday: !canViewAll,
       );
     });

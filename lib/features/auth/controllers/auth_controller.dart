@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/auth_state.dart';
+import '../domain/user_role.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>(
   (ref) => FirebaseAuth.instance,
@@ -20,7 +21,9 @@ class AuthController extends StateNotifier<AuthState> {
   AuthController(FirebaseAuth auth)
     : _auth = auth,
       super(const AuthState.initial()) {
-    _authSubscription = _auth.authStateChanges().listen(_onAuthStateChanged);
+    _authSubscription = _auth.authStateChanges().listen((user) {
+      unawaited(_onAuthStateChanged(user));
+    });
   }
 
   final FirebaseAuth _auth;
@@ -66,9 +69,10 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  void _onAuthStateChanged(User? user) {
+  Future<void> _onAuthStateChanged(User? user) async {
     final displayName = user?.displayName ??
         (user?.email?.isNotEmpty == true ? user!.email!.split('@').first : null);
+    final role = await _resolveRole(user);
 
     state = state.copyWith(
       isAuthenticated: user != null,
@@ -76,7 +80,21 @@ class AuthController extends StateNotifier<AuthState> {
       displayName: displayName,
       isLoading: false,
       errorMessage: null,
+      role: role,
     );
+  }
+
+  Future<UserRole> _resolveRole(User? user) async {
+    if (user == null) {
+      return UserRole.collector;
+    }
+    try {
+      final tokenResult = await user.getIdTokenResult(true);
+      final claim = tokenResult.claims?['role'];
+      return userRoleFromClaim(claim);
+    } catch (_) {
+      return UserRole.collector;
+    }
   }
 
   String _mapFirebaseError(FirebaseAuthException error) {

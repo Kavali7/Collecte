@@ -28,3 +28,15 @@ flutter test
 ```
 
 Les tests couvrent le repository Firestore (via `FakeFirebaseFirestore`), le contrôleur d’itinéraire et le rendu des entêtes du tableau.
+
+## Provisionner un compte admin
+
+Un script Node (`scripts/create_admin_user.js`) utilise le service account Firebase (`collecte-9b6e1-firebase-adminsdk-fbsvc-44358eb6da.json`) pour créer un utilisateur et lui appliquer le custom claim `role=admin` attendu par les règles Firestore.
+
+```bash
+cd scripts
+npm install # uniquement la première fois
+node create_admin_user.js <email> <mot_de_passe> [Nom complet]
+```
+
+Si l’utilisateur existe déjà, le script mettra à jour son mot de passe/nom et positionnera ou conservera les autres custom claims. Demandez au nouvel admin de se déconnecter/reconnecter pour récupérer son token contenant `role=admin`.

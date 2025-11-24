@@ -165,8 +165,7 @@ class BoutiqueCacheStore {
 
 final boutiqueCacheStoreProvider = Provider<BoutiqueCacheStore>((ref) {
   final authState = ref.watch(authControllerProvider);
-  final auth = ref.watch(firebaseAuthProvider);
-  final collectorId =
-      authState.isAuthenticated ? auth.currentUser?.uid : null;
-  return BoutiqueCacheStore(collectorId: collectorId);
+  final collectorId = authState.isAuthenticated ? authState.userId : null;
+  final cacheScope = authState.canManageAllCollectors ? 'global-admin' : collectorId;
+  return BoutiqueCacheStore(collectorId: cacheScope);
 });

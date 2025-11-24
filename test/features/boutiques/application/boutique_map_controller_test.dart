@@ -71,6 +71,7 @@ void main() {
       connectivityService: connectivity,
       locationService: locationService,
       collectorId: 'tester',
+      canViewAllCollectors: false,
     );
 
     expect(controller.state, const BoutiqueMapState.initial());
@@ -97,6 +98,7 @@ void main() {
         connectivityService: connectivity,
         locationService: locationService,
         collectorId: 'tester',
+        canViewAllCollectors: false,
       );
 
       await controller.refreshUserLocation();
@@ -133,6 +135,7 @@ void main() {
       connectivityService: connectivity,
       locationService: locationService,
       collectorId: 'tester',
+      canViewAllCollectors: false,
     );
 
     await controller.refreshUserLocation();
@@ -167,6 +170,23 @@ class _FakeBoutiqueRepository implements BoutiqueRepository {
     }
     return remoteBoutiques.where((boutique) {
       if (boutique.collectorId != collectorId) return false;
+      if (start == null || end == null) return true;
+      final submittedAt = boutique.submittedAt;
+      if (submittedAt == null) return false;
+      final local = submittedAt.isUtc ? submittedAt.toLocal() : submittedAt;
+      return !local.isBefore(start) && local.isBefore(end);
+    }).toList();
+  }
+
+  @override
+  Future<List<Boutique>> loadAllBoutiques({DateTime? forDate}) async {
+    DateTime? start;
+    DateTime? end;
+    if (forDate != null) {
+      start = DateTime(forDate.year, forDate.month, forDate.day);
+      end = start.add(const Duration(days: 1));
+    }
+    return remoteBoutiques.where((boutique) {
       if (start == null || end == null) return true;
       final submittedAt = boutique.submittedAt;
       if (submittedAt == null) return false;
