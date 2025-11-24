@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isContestPhotoUpload(contestId, fileName) {
+      return request.auth == null &&
+        request.resource != null &&
+        resource == null &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|jpg|png|webp)') &&
+        fileName.matches('^[a-f0-9]{16}(?:-[a-z0-9]{1,12})?\\.jpg$') &&
+        request.resource.metadata.source == 'contest-form' &&
+        (
+          request.resource.metadata.contestIdSlug == contestId ||
+          request.resource.metadata.contestId == contestId
+        ) &&
+        request.resource.metadata.phoneHash.matches('^[a-f0-9]{32,64}$');
+    }
+
+    match /contest-submissions/{contestId}/{fileName} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isContestPhotoUpload(contestId, fileName);
+      allow update, delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow get: if true;
+      allow list, create, update, delete: if isAdmin();
+    }
+  }
+}
