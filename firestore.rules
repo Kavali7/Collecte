@@ -88,8 +88,8 @@ service cloud.firestore {
     }
 
     match /boutiques/{document} {
-      allow get, list: if (isOwnerDocOrUnassigned() && resourceIsToday()) || canManageAll();
-      allow create: if (isOwnerPayloadOrUnassigned() && payloadIsToday()) || canManageAll();
+      allow get, list: if (isOwnerDocOrUnassigned() && resourceIsToday()) || isAdmin();
+      allow create: if (isOwnerPayloadOrUnassigned() && payloadIsToday()) || isAdmin();
       allow update: if (
         canManageAll() ||
         (
